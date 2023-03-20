@@ -7,7 +7,6 @@ from core import setup_routers
 from core.utils import config
 
 memes = Bot(token=config.token)
-worker = Dispatcher()
 
 
 async def main():
@@ -17,6 +16,7 @@ async def main():
         stream=sys.stdout,
     )
 
+    worker = Dispatcher()
     router = setup_routers()
     worker.include_router(router)
     useful_updates = worker.resolve_used_update_types()
