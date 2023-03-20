@@ -25,6 +25,8 @@ async def work_send_tax(message: types.Message):
         sender_name = message.chat.username
     elif message.chat.first_name == "":
         sender_name = message.chat.username
+    elif message.chat.first_name == "\xad":
+        sender_name = message.chat.username
     else:
         sender_name = message.chat.first_name
 
