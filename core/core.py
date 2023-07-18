@@ -34,6 +34,7 @@ async def work_send_tax(message: types.Message):
         sender_lastname = ' '
     else:
         sender_lastname = message.chat.last_name
+
     text = f"Мем прислал: {sender_name} {sender_lastname}"
     await memes.send_photo(channel, photo=message.photo[-1].file_id, caption=text)
     await message.reply("Спасибо за мем! Пока-пока")
