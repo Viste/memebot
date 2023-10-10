@@ -8,8 +8,13 @@ on:
 
 jobs:
   docker:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
+      - name: Prepare
+        shell: sh
+        run: |
+          apk update
+          apk add nodejs docker-cli
       -
         name: Set up QEMU
         uses: docker/setup-qemu-action@v2
