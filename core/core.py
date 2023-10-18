@@ -19,37 +19,47 @@ async def start(message: types.Message):
 
 @router.message(F.content_type.in_({'photo'}), F.chat.type == "private")
 async def work_send_tax(message: types.Message):
-    logging.info('info about message %s', message)
-    logging.info('id of file %s', message.photo[-1].file_id)
-    if message.chat.first_name is None:
-        sender_name = message.chat.username
-    elif message.chat.first_name == "":
-        sender_name = message.chat.username
-    elif message.chat.first_name == "\xad":
-        sender_name = message.chat.username
+    uid = message.from_user.id
+    if uid in config.banned_user_ids:
+        text = "не хочу с тобой разговаривать"
+        await message.reply(text, parse_mode=None)
     else:
-        sender_name = message.chat.first_name
+        logging.info('info about message %s', message)
+        logging.info('id of file %s', message.photo[-1].file_id)
+        if message.chat.first_name is None:
+            sender_name = message.chat.username
+        elif message.chat.first_name == "":
+            sender_name = message.chat.username
+        elif message.chat.first_name == "\xad":
+            sender_name = message.chat.username
+        else:
+            sender_name = message.chat.first_name
 
-    if message.chat.last_name is None:
-        sender_lastname = ' '
-    else:
-        sender_lastname = message.chat.last_name
+        if message.chat.last_name is None:
+            sender_lastname = ' '
+        else:
+            sender_lastname = message.chat.last_name
 
-    text = f"Мем прислал: {sender_name} {sender_lastname}"
-    await memes.send_photo(channel, photo=message.photo[-1].file_id, caption=text)
-    await message.reply("Спасибо за мем! Пока-пока")
+        text = f"Мем прислал: {sender_name} {sender_lastname}"
+        await memes.send_photo(channel, photo=message.photo[-1].file_id, caption=text)
+        await message.reply("Спасибо за мем! Пока-пока")
 
 
 @router.message(F.content_type.in_({'video'}), F.chat.type == "private")
 async def work_send_demo(message: types.Message):
-    logging.info('info about message %s', message)
-    logging.info('id of file %s', message.video.file_id)
-    sender_name = message.chat.first_name
-    if message.chat.last_name is None:
-        sender_lastname = ' '
+    uid = message.from_user.id
+    if uid in config.banned_user_ids:
+        text = "не хочу с тобой разговаривать"
+        await message.reply(text, parse_mode=None)
     else:
-        sender_lastname = message.chat.last_name
-    content = message.video.file_id
-    text = f"Мем прислал: {sender_name} {sender_lastname}"
-    await memes.send_video(channel, video=content, caption=text)
-    await message.reply("Спасибо за мем! Пока-пока")
+        logging.info('info about message %s', message)
+        logging.info('id of file %s', message.video.file_id)
+        sender_name = message.chat.first_name
+        if message.chat.last_name is None:
+            sender_lastname = ' '
+        else:
+            sender_lastname = message.chat.last_name
+        content = message.video.file_id
+        text = f"Мем прислал: {sender_name} {sender_lastname}"
+        await memes.send_video(channel, video=content, caption=text)
+        await message.reply("Спасибо за мем! Пока-пока")
