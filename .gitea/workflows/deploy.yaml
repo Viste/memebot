@@ -25,7 +25,7 @@ jobs:
         shell: sh
         run: |
           echo "${{ secrets.DOCKERHUB_PASSWORD }}" | docker login -u vistee --password-stdin
-          docker build --build-arg "${{ secrets.CONFIG }}" -t vistee/pprfnk:memebot .
+          docker build -t vistee/pprfnk:memebot .
 
       - name: Push image
         shell: sh
