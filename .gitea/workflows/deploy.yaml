@@ -14,8 +14,19 @@ jobs:
         shell: sh
         run: |
           apk update
-          apk add nodejs docker-cli
-          apk add --no-cache kubectl
+          apk add docker-cli
+
+      - name: nodejs
+        shell: bash
+        run: |
+          apk update
+          apk add nodejs        
+
+      - name: kubectl
+        shell: bash
+        run: |
+          apk update
+          apk add kubectl 
 
       - name: Checkout repository
         uses: https://github.com/actions/checkout@master
