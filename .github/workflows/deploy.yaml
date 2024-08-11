@@ -36,8 +36,8 @@ jobs:
           method: kubeconfig
           kubeconfig: ${{ secrets.KUBECONFIG }}
           context: kubernetes-admin@kubernetes
-          namespace: memebot
+          namespace: membot
 
       - name: Rollout pod in k8s
         shell: bash
-        run: kubectl rollout restart -n memebot deployment meme-bot
+        run: kubectl rollout restart -n membot deployment meme-bot
