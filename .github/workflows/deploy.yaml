@@ -36,7 +36,6 @@ jobs:
           method: kubeconfig
           kubeconfig: ${{ secrets.KUBECONFIG }}
           context: kubernetes-admin@kubernetes
-          namespace: memebot
 
       - name: Rollout pod in k8s
         shell: bash
