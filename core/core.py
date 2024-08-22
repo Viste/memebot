@@ -34,18 +34,8 @@ async def start_handler(message: types.Message):
     if len(args) > 1:
         payload = args[1]
         if payload == 'auth':
-            await message.answer(l10n.format_value("reg-hello"))
-
-            telegram_user_data = {
-                'telegram_id': telegram_id,
-                'username': username,
-                'first_name': first_name,
-                'last_name': last_name
-            }
-            headers = {
-                'Authorization': f'Bearer {generate_jwt()}'
-            }
-
+            telegram_user_data = {'telegram_id': telegram_id, 'username': username, 'first_name': first_name, 'last_name': last_name}
+            headers = {'Authorization': f'Bearer {generate_jwt()}'}
             response = requests.post(API_URL, json=telegram_user_data, headers=headers)
 
             if response.status_code == 200:
