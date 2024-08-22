@@ -1,2 +1,4 @@
 aiogram==3.11.0
 requests
+jwt
+python-dotenv

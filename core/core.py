@@ -1,4 +1,6 @@
 import logging
+import jwt
+import os
 
 from aiogram import types, F, Router
 from aiogram.filters.command import Command
@@ -9,39 +11,50 @@ import requests
 logger = logging.getLogger("__name__")
 router = Router()
 channel = config.channel
+API_URL = "https://dev-vlab.ru/api/telegram_user"
+TELEGRAM_BOT_SECRET = os.getenv('TELEGRAM_BOT_SECRET')
 
 
-@router.message(Command(commands=['link']), F.chat.type == "private")
-async def link_account(message: types.Message):
-    user = message.from_user
-    profile_photos = await memes.get_user_profile_photos(user.id)
-    if profile_photos.total_count > 0:
-        photo_file_id = profile_photos.photos[0][-1].file_id
-        file = await memes.get_file(photo_file_id)
-        file_url = f"https://api.telegram.org/file/bot{memes.token}/{file.file_path}"
-
-        response = requests.post('https://dev-vlab.ru/update_telegram_profile', json={
-            'telegram_id': user.id,
-            'username': user.username,
-            'first_name': user.first_name,
-            'last_name': user.last_name,
-            'profile_picture': file_url
-        })
-
-        if response.status_code == 200:
-            await message.reply("Account linked successfully!")
-        else:
-            await message.reply("Failed to link your account.")
-    else:
-        await message.reply("You don't have a profile picture.")
+def generate_jwt():
+    payload = {
+        "iss": "telegram_bot"
+    }
+    token = jwt.encode(payload, TELEGRAM_BOT_SECRET, algorithm="HS256")
+    return token
 
 
 @router.message(Command(commands="start", ignore_case=True), F.chat.type == "private")
-async def start(message: types.Message):
-    first_name = message.chat.first_name
+async def start_handler(message: types.Message):
+    first_name = message.from_user.first_name
+    last_name = message.from_user.last_name
+    username = message.from_user.username
+    telegram_id = str(message.from_user.id)
 
-    await message.reply(f"Привет {first_name}, тут ты можешь отправить нам мемес. Принимаю только видосики и картинощки\n"
-                        f"А еще связать свой аккаунт с сайтом dev-vlab.ru через команду /link")
+    args = message.text.split(maxsplit=1)
+    if len(args) > 1:
+        payload = args[1]
+        if payload == 'auth':
+            await message.answer(l10n.format_value("reg-hello"))
+
+            telegram_user_data = {
+                'telegram_id': telegram_id,
+                'username': username,
+                'first_name': first_name,
+                'last_name': last_name
+            }
+            headers = {
+                'Authorization': f'Bearer {generate_jwt()}'
+            }
+
+            response = requests.post(API_URL, json=telegram_user_data, headers=headers)
+
+            if response.status_code == 200:
+                await message.answer("Вы успешно авторизовались через Telegram!")
+            else:
+                await message.answer("Произошла ошибка при регистрации. Попробуйте позже.")
+    else:
+        await message.reply(f"Привет {first_name}, тут ты можешь отправить нам мемес. Принимаю только видосики и картинощки\n"
+                            f"А еще связать свой аккаунт с сайтом dev-vlab.ru через команду /start auth")
 
 
 @router.message(F.content_type.in_({'photo'}), F.chat.type == "private")

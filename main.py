@@ -2,11 +2,13 @@ import asyncio
 import logging
 import sys
 
+from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher
 from core import setup_routers
 from core.utils import config
 
 memes = Bot(token=config.token)
+load_dotenv()
 
 
 async def main():
