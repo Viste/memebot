@@ -1,4 +1,5 @@
 aiogram==3.11.0
 requests
 PyJWT
+aiohttp
 python-dotenv
