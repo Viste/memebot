@@ -82,7 +82,7 @@ async def comment_on_photo(message: types.Message):
 
 
 @router.message(F.chat.id == group_id, F.forward_from_chat.type == 'channel', F.chat.type.in_({'group', 'supergroup'}))
-async def comment_on_photo(message: types.Message):
+async def comments(message: types.Message):
     logging.info('Received a photo in chat %s from user %s', message.chat.id, message.from_user.id)
 
     file_info = await message.bot.get_file(message.photo[-1].file_id)
