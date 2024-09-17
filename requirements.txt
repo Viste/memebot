@@ -3,3 +3,5 @@ requests
 PyJWT
 aiohttp
 python-dotenv
+jwt
+openai
