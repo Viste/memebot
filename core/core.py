@@ -69,7 +69,10 @@ async def work_send_demo(message: types.Message):
         await message.reply("Спасибо за мем! Пока-пока")
 
 
-@router.message(F.chat.id == group_id, F.chat.type.in_({'group', 'supergroup'}) & F.forward_from_chat.type == 'channel', F.content_type.in_({'photo'}))
+@router.message(F.chat.id == group_id,
+                F.chat.type.in_({'group', 'supergroup'}),
+                F.forward_from_chat.type == 'channel',
+                F.content_type == 'photo')
 async def comment_on_photo(message: types.Message):
     logging.info('Received a photo in chat %s from user %s', message.chat.id, message.from_user.id)
 
@@ -102,7 +105,7 @@ async def handle_group_messages(message: types.Message):
     else:
         logging.info(f"Received message from {message.from_user.first_name}: {message.text}")
 
-# @router.message(F.chat.type.in_({'group', 'supergroup'}))
-# async def log_all_group_messages(message: types.Message):
-#     logging.info(f"Received a message: {message}")
 
+@router.message(F.chat.type.in_({'group', 'supergroup'}))
+async def log_all_group_messages(message: types.Message):
+    logging.info(f"Received a message: {message}")
