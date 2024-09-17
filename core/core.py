@@ -84,8 +84,11 @@ async def handle_group_messages(message: types.Message):
     else:
         logging.info(f"Received message from {message.from_user.first_name}: {message.text}")
 
+@router.message(F.chat.id == GROUP_ID)
+async def log_all_group_messages(message: types.Message):
+    logging.info(f"Received a message: {message}")
 
-@router.message(F.chat.id == GROUP_ID, F.content_type.in_({'photo'}))
+@router.message(F.content_type.in_({'photo'}), F.chat.id == GROUP_ID)
 async def comment_on_photo(message: types.Message):
     logging.info('Received a photo in chat %s from user %s', message.chat.id, message.from_user.id)
 
@@ -94,5 +97,4 @@ async def comment_on_photo(message: types.Message):
 
     comment = await generate_comment_from_image(image_url)
 
-    # Send the comment as a reply to the photo
     await message.reply(f"Комментарий на фото: {comment}")
