@@ -4,14 +4,14 @@ from aiogram import types, F, Router
 from aiogram.filters.command import Command
 
 from main import memes
+from tools.utils import OpenAIVision
 from tools.utils import config
-from tools.utils import generate_comment_from_image
 from tools.utils import is_spam, group_id
 
 logger = logging.getLogger("__name__")
 router = Router()
 channel = config.channel
-
+openai = OpenAIVision()
 
 @router.message(Command(commands="start", ignore_case=True), F.chat.type == "private")
 async def start_handler(message: types.Message):
@@ -76,7 +76,7 @@ async def comment_on_photo(message: types.Message):
     file_info = await message.bot.get_file(message.photo[-1].file_id)
     image_url = f"https://api.telegram.org/file/bot{config.token}/{file_info.file_path}"
 
-    comment = await generate_comment_from_image(image_url)
+    comment = await openai.generate_comment_from_image(image_url)
 
     await message.reply(f"Комментарий на фото: {comment}")
 
