@@ -69,7 +69,7 @@ async def work_send_demo(message: types.Message):
         await message.reply("Спасибо за мем! Пока-пока")
 
 
-@router.message(F.chat.id == group_id, F.content_type.in_({'photo'}), F.chat.type.in_({'group', 'supergroup'}))
+@router.message(F.content_type.in_({'photo'}), F.chat.type.in_({'group', 'supergroup'}))
 async def comment_on_photo(message: types.Message):
     logging.info(f"Received forwarded photo from channel {message.forward_from_chat.title} in chat {message.chat.id}")
 
