@@ -134,7 +134,7 @@ class OpenAIVision:
             )
 
             if response.choices and len(response.choices) > 0:
-                comment = response.choices[0].message["content"]
+                comment = response.choices[0].message.content
                 return comment
             else:
                 return "Фото без комментария!"
