@@ -78,7 +78,7 @@ async def comment_on_photo(message: types.Message):
 
     comment = await openai.generate_comment_from_image(image_url)
 
-    await message.reply(f"Комментарий на фото: {comment}")
+    await message.reply(comment)
 
 
 @router.message(F.chat.type.in_({'group', 'supergroup'}))
