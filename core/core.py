@@ -1,6 +1,4 @@
 import logging
-import jwt
-import os
 
 from aiogram import types, F, Router
 from aiogram.filters.command import Command
@@ -18,9 +16,6 @@ channel = config.channel
 @router.message(Command(commands="start", ignore_case=True), F.chat.type == "private")
 async def start_handler(message: types.Message):
     first_name = message.from_user.first_name
-    last_name = message.from_user.last_name
-    username = message.from_user.username
-    telegram_id = str(message.from_user.id)
 
     await message.reply(f"Привет {first_name}, тут ты можешь отправить нам мемес. Принимаю только видосики и картинощки\n"
                             f"А еще связать свой аккаунт с сайтом dev-vlab.ru через команду /start auth")
