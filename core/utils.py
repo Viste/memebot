@@ -13,7 +13,7 @@ class JSONObject:
 cfg_file = open(os.path.join(os.path.dirname(__file__), 'config.json'), 'r', encoding='utf8')
 config = json.loads(cfg_file.read(), object_hook=JSONObject)
 SPAM_LINKS_REGEX = re.compile(r"(https?:\/\/)?(t\.me|waxu|binance|xyz)", re.IGNORECASE)
-GROUP_ID = "-1564920057"
+GROUP_ID = "-1001564920057"
 openai.api_key = os.getenv('OPENAI_API_KEY')
 
 def is_spam(message: types.Message):
