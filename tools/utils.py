@@ -16,6 +16,8 @@ cfg_file = open(os.path.join(os.path.dirname(__file__), 'config.json'), 'r', enc
 config = json.loads(cfg_file.read(), object_hook=JSONObject)
 SPAM_LINKS_REGEX = re.compile(r"(https?:\/\/)?(t\.me|waxu|binance|xyz)", re.IGNORECASE)
 openai.api_key = os.getenv('OPENAI_API_KEY')
+group_id = "-1001564920057"
+
 
 def is_spam(message: types.Message):
     if message.text:

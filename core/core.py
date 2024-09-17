@@ -3,10 +3,11 @@ import logging
 from aiogram import types, F, Router
 from aiogram.filters.command import Command
 
+from filter.filters import IsForwardedFromChannel
 from main import memes
 from tools.utils import config
 from tools.utils import generate_comment_from_image
-from tools.utils import is_spam
+from tools.utils import is_spam, group_id
 
 logger = logging.getLogger("__name__")
 router = Router()
@@ -69,11 +70,11 @@ async def work_send_demo(message: types.Message):
         await message.reply("Спасибо за мем! Пока-пока")
 
 
-@router.message(F.chat.id == -1001564920057, F.chat.type.in_({'group', 'supergroup'}))
+@router.message(F.chat.id == group_id, F.chat.type.in_({'group', 'supergroup'}))
 async def handle_group_messages(message: types.Message):
     if is_spam(message):
         await message.delete()
-        await memes.ban_chat_member(chat_id=-1001564920057, user_id=message.from_user.id)
+        await memes.ban_chat_member(chat_id=group_id, user_id=message.from_user.id)
         logging.info(f"User {message.from_user.id} banned for spamming")
         await message.answer(f"Пользователь {message.from_user.first_name} был заблокирован за спам.")
     else:
@@ -83,7 +84,7 @@ async def handle_group_messages(message: types.Message):
 # async def log_all_group_messages(message: types.Message):
 #     logging.info(f"Received a message: {message}")
 
-@router.message(F.content_type.in_({'photo'}), F.chat.id == -1001564920057, F.chat.type.in_({'group', 'supergroup'}))
+@router.message(IsForwardedFromChannel(), F.content_type.in_({'photo'}), F.chat.id == group_id, F.chat.type.in_({'group', 'supergroup'}))
 async def comment_on_photo(message: types.Message):
     logging.info('Received a photo in chat %s from user %s', message.chat.id, message.from_user.id)
 
