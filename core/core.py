@@ -69,7 +69,7 @@ async def work_send_demo(message: types.Message):
         await message.reply("Спасибо за мем! Пока-пока")
 
 
-@router.message(F.chat.id == GROUP_ID, F.chat.type.in_({'group', 'supergroup'}))
+@router.message(F.chat.id == -1001564920057, F.chat.type.in_({'group', 'supergroup'}))
 async def handle_group_messages(message: types.Message):
     if is_spam(message):
         await message.delete()
@@ -83,7 +83,7 @@ async def handle_group_messages(message: types.Message):
 # async def log_all_group_messages(message: types.Message):
 #     logging.info(f"Received a message: {message}")
 
-@router.message(F.content_type.in_({'photo'}), F.chat.type.in_({'group', 'supergroup'}),  F.chat.id == GROUP_ID)
+@router.message(F.content_type.in_({'photo'}),  F.chat.id == -1001564920057, F.chat.type.in_({'group', 'supergroup'}))
 async def comment_on_photo(message: types.Message):
     logging.info('Received a photo in chat %s from user %s', message.chat.id, message.from_user.id)
 
