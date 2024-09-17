@@ -6,21 +6,13 @@ from aiogram import types, F, Router
 from aiogram.filters.command import Command
 from main import memes
 from core.utils import config
+from core.utils import GROUP_ID
+from core.utils import is_spam
 import requests
 
 logger = logging.getLogger("__name__")
 router = Router()
 channel = config.channel
-API_URL = "https://dev-vlab.ru/api/telegram_user"
-TELEGRAM_BOT_SECRET = os.getenv('TELEGRAM_BOT_SECRET')
-
-
-def generate_jwt():
-    payload = {
-        "iss": "telegram_bot"
-    }
-    token = jwt.encode(payload, TELEGRAM_BOT_SECRET, algorithm="HS256")
-    return token
 
 
 @router.message(Command(commands="start", ignore_case=True), F.chat.type == "private")
@@ -30,20 +22,7 @@ async def start_handler(message: types.Message):
     username = message.from_user.username
     telegram_id = str(message.from_user.id)
 
-    args = message.text.split(maxsplit=1)
-    if len(args) > 1:
-        payload = args[1]
-        if payload == 'auth':
-            telegram_user_data = {'telegram_id': telegram_id, 'username': username, 'first_name': first_name, 'last_name': last_name}
-            headers = {'Authorization': f'Bearer {generate_jwt()}'}
-            response = requests.post(API_URL, json=telegram_user_data, headers=headers)
-
-            if response.status_code == 200:
-                await message.answer("Вы успешно авторизовались через Telegram!")
-            else:
-                await message.answer("Произошла ошибка при регистрации. Попробуйте позже.")
-    else:
-        await message.reply(f"Привет {first_name}, тут ты можешь отправить нам мемес. Принимаю только видосики и картинощки\n"
+    await message.reply(f"Привет {first_name}, тут ты можешь отправить нам мемес. Принимаю только видосики и картинощки\n"
                             f"А еще связать свой аккаунт с сайтом dev-vlab.ru через команду /start auth")
 
 
@@ -93,3 +72,14 @@ async def work_send_demo(message: types.Message):
         text = f"Мем прислал: {sender_name} {sender_lastname}"
         await memes.send_video(channel, video=content, caption=text)
         await message.reply("Спасибо за мем! Пока-пока")
+
+
+@router.message(F.chat.id == GROUP_ID)
+async def handle_group_messages(message: types.Message):
+    if is_spam(message):
+        await message.delete()
+        await memes.ban_chat_member(chat_id=GROUP_ID, user_id=message.from_user.id)
+        logging.info(f"User {message.from_user.id} banned for spamming")
+        await message.answer(f"Пользователь {message.from_user.first_name} был заблокирован за спам.")
+    else:
+        logging.info(f"Received message from {message.from_user.first_name}: {message.text}")
