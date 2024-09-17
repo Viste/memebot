@@ -3,7 +3,6 @@ import logging
 from aiogram import types, F, Router
 from aiogram.filters.command import Command
 
-from filter.filters import IsForwardedFromChannel
 from main import memes
 from tools.utils import config
 from tools.utils import generate_comment_from_image
@@ -84,7 +83,7 @@ async def handle_group_messages(message: types.Message):
 # async def log_all_group_messages(message: types.Message):
 #     logging.info(f"Received a message: {message}")
 
-@router.message(IsForwardedFromChannel(), F.content_type.in_({'photo'}), F.chat.id == group_id, F.chat.type.in_({'group', 'supergroup'}))
+@router.message(F.content_type.in_({'photo'}) & F.forward_from_chat.type == 'channel', F.chat.id == group_id, F.chat.type.in_({'group', 'supergroup'}))
 async def comment_on_photo(message: types.Message):
     logging.info('Received a photo in chat %s from user %s', message.chat.id, message.from_user.id)
 
