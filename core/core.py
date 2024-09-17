@@ -84,17 +84,6 @@ async def comment_on_photo(message: types.Message):
     await message.reply(f"Комментарий на фото: {comment}")
 
 
-@router.message(F.chat.id == group_id, F.forward_from_chat.type == 'channel', F.chat.type.in_({'group', 'supergroup'}))
-async def comments(message: types.Message):
-    logging.info('Received a photo in chat %s from user %s', message.chat.id, message.from_user.id)
-
-    file_info = await message.bot.get_file(message.photo[-1].file_id)
-    image_url = f"https://api.telegram.org/file/bot{config.token}/{file_info.file_path}"
-
-    comment = await generate_comment_from_image(image_url)
-
-    await message.reply(f"Комментарий на фото: {comment}")
-
 @router.message(F.chat.id == group_id, F.chat.type.in_({'group', 'supergroup'}))
 async def handle_group_messages(message: types.Message):
     if is_spam(message):
@@ -104,8 +93,3 @@ async def handle_group_messages(message: types.Message):
         await message.answer(f"Пользователь {message.from_user.first_name} был заблокирован за спам.")
     else:
         logging.info(f"Received message from {message.from_user.first_name}: {message.text}")
-
-
-@router.message(F.chat.type.in_({'group', 'supergroup'}))
-async def log_all_group_messages(message: types.Message):
-    logging.info(f"Received a message: {message}")
