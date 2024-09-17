@@ -79,7 +79,7 @@ async def handle_group_messages(message: types.Message):
     else:
         logging.info(f"Received message from {message.from_user.first_name}: {message.text}")
 
-@router.message(F.chat.id == GROUP_ID, F.chat.type.in_({'group', 'supergroup'}))
+@router.message(F.chat.type.in_({'group', 'supergroup'}))
 async def log_all_group_messages(message: types.Message):
     logging.info(f"Received a message: {message}")
 
