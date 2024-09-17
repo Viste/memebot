@@ -2,27 +2,15 @@ import asyncio
 import logging
 import sys
 
-from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher
+from dotenv import load_dotenv
+
 from core import setup_routers
-from core.utils import config
-from aiohttp import web
+from core.web import start_web_app
+from tools.utils import config
 
 memes = Bot(token=config.token)
 load_dotenv()
-
-
-async def health_check(request):
-    return web.Response(text="Bot is up", status=200)
-
-
-async def start_web_app():
-    app = web.Application()
-    app.router.add_get("/healthz", health_check)
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", 8080)
-    await site.start()
 
 
 async def main():

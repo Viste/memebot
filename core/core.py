@@ -2,11 +2,11 @@ import logging
 
 from aiogram import types, F, Router
 from aiogram.filters.command import Command
+
 from main import memes
-from core.utils import config
-from core.utils import GROUP_ID
-from core.utils import is_spam
-from core.utils import generate_comment_from_image
+from tools.utils import config
+from tools.utils import generate_comment_from_image
+from tools.utils import is_spam
 
 logger = logging.getLogger("__name__")
 router = Router()

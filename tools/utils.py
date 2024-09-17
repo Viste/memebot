@@ -1,9 +1,11 @@
 import json
+import logging
 import os
 import re
-from aiogram import types
+
 import openai
-import logging
+from aiogram import types
+
 
 class JSONObject:
     def __init__(self, dic):
