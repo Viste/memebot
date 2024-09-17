@@ -25,25 +25,21 @@ def is_spam(message: types.Message):
 
 
 class OpenAIVision:
-    max_retries: int
 
     def __init__(self):
         super().__init__()
-        self.model = "gpt-4-o"
-        self.max_retries = 10
+        self.model = "gpt-4o"
         self.max_tokens = 8196
         self.config_tokens = 1024
         self.max_history_size = 30
         self.n_choices = 1
-        self.retries = 0
-        self.show_tokens = False
-        self.client = AsyncOpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+        self.client = AsyncOpenAI(api_key=os.getenv('OPENAI_API_KEY'), base_url='http://31.172.78.152:9000/v1')
         self.args = {"max_tokens": 1024}
 
     async def generate_comment_from_image(self, image_url: str) -> str:
         try:
             response = await self.client.chat.completions.create(
-                model="gpt-4o",
+                model=self.model,
                 messages=[
                     {
                         "role": "system",
@@ -124,7 +120,7 @@ class OpenAIVision:
                     {
                         "role": "user",
                         "content": [
-                            {"type": "text", "text": "What’s in this image?"},
+                            {"type": "text", "text": "Поставь свою оценку этому мему!"},
                             {
                                 "type": "image_url",
                                 "image_url": {
