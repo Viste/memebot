@@ -61,7 +61,10 @@ async def work_send_demo(message: types.Message):
     else:
         logging.info('info about message %s', message)
         logging.info('id of file %s', message.video.file_id)
-        sender_name = message.chat.first_name
+        if message.chat.first_name is None:
+            sender_name = message.chat.username
+        else:
+            sender_name = message.chat.first_name
         if message.chat.last_name is None:
             sender_lastname = ' '
         else:
