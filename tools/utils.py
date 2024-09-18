@@ -7,25 +7,33 @@ from aiogram import types
 from openai import AsyncOpenAI
 
 
+# Улучшенное чтение JSON файла с проверкой на ошибки
 class JSONObject:
     def __init__(self, dic):
         vars(self).update(dic)
 
 
-cfg_file = open(os.path.join(os.path.dirname(__file__), 'config.json'), 'r', encoding='utf8')
-config = json.loads(cfg_file.read(), object_hook=JSONObject)
+def load_config():
+    config_path = os.path.join(os.path.dirname(__file__), 'config.json')
+    try:
+        with open(config_path, 'r', encoding='utf8') as cfg_file:
+            return json.load(cfg_file, object_hook=JSONObject)
+    except FileNotFoundError:
+        logging.error(f"Config file not found: {config_path}")
+    except json.JSONDecodeError:
+        logging.error(f"Error decoding JSON from the config file: {config_path}")
+    return None
+
+
+config = load_config()
+
 SPAM_LINKS_REGEX = re.compile(r"(https?:\/\/)?(t\.me|waxu|binance|xyz)", re.IGNORECASE)
 group_id = "-1001564920057"
 
-
 def is_spam(message: types.Message):
-    if message.text:
-        return SPAM_LINKS_REGEX.search(message.text) is not None
-    return False
-
+    return bool(message.text and SPAM_LINKS_REGEX.search(message.text))
 
 class OpenAIVision:
-
     def __init__(self):
         super().__init__()
         self.model = "gpt-4o"
@@ -106,13 +114,14 @@ class OpenAIVision:
                                       ]
                                     },
                                     "response_style": {
-                                      "style": "Саркастический, строгий, но с нотками иронии и юмора. Всегда подчёркивается исторический контекст и важность мемов как идеологического оружия."
+                                      "style": "Саркастический, строгий, но с нотками иронии и юмора. Всегда подчёркивается важность мемов как идеологического оружия."
                                     },
                                     "community_guidelines": {
                                       "guidelines": [
                                         "Придерживайтесь исторического или социального контекста.",
                                         "Избегайте бессмысленных шуток — товарищ Сталин не терпит бессмысленности.",
-                                        "Сатира всегда уместна, если она нацелена на важные социальные вопросы."
+                                        "Сатира всегда уместна, если она нацелена на важные социальные вопросы.",
+                                        "Будь более современным, как если бы Сталин попал в 21 век."
                                       ]
                                     }
                                   }"""
