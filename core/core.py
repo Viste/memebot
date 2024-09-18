@@ -1,17 +1,20 @@
+import html
 import logging
 
 from aiogram import types, F, Router
 from aiogram.filters.command import Command
 
 from main import memes
+from tools.mentality import OpenAI
 from tools.utils import OpenAIVision
-from tools.utils import config
-from tools.utils import is_spam, group_id
+from tools.utils import config, split_into_chunks
+from tools.utils import is_spam, group_id, send_reply
 
-logger = logging.getLogger("__name__")
+logger = logging.getLogger(__name__)
 router = Router()
 channel = config.channel
 openai = OpenAIVision()
+oai = OpenAI()
 
 @router.message(Command(commands="start", ignore_case=True), F.chat.type == "private")
 async def start_handler(message: types.Message):
@@ -79,6 +82,18 @@ async def comment_on_photo(message: types.Message):
     comment = await openai.generate_comment_from_image(image_url)
 
     await message.reply(comment)
+
+
+@router.message(F.reply_to_message.from_user.is_bot)
+async def process_ask_chat(message: types.Message) -> None:
+    logger.info("%s", message)
+    text = html.escape(message.text)
+
+    replay_text = await oai.get_resp(text, message.from_user.id)
+    chunks = split_into_chunks(replay_text)
+    for index, chunk in enumerate(chunks):
+        if index == 0:
+            await send_reply(message, chunk)
 
 
 @router.message(F.chat.type.in_({'group', 'supergroup'}))

@@ -1,4 +1,8 @@
+import logging
+
 from aiohttp import web
+
+logger = logging.getLogger(__name__)
 
 
 async def health_check(request):
