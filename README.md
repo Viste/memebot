@@ -1,2 +1,2 @@
 # memebot
-for my meme public
+this works here: https://t.me/stalinfollower
