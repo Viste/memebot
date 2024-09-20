@@ -16,7 +16,21 @@ router = Router()
 channel = config.channel
 openai = OpenAIVision()
 oai = OpenAI()
+
 media_groups = {}
+media_group_timers = {}
+
+
+async def send_media_group(group_id):
+    if group_id in media_groups:
+        await memes.send_media_group(channel, media=media_groups[group_id])
+        del media_groups[group_id]
+        del media_group_timers[group_id]
+
+
+async def group_send_delay(group_id):
+    await asyncio.sleep(5)
+    await send_media_group(group_id)
 
 @router.message(Command(commands="start", ignore_case=True), F.chat.type == "private")
 async def start_handler(message: types.Message):
@@ -25,7 +39,6 @@ async def start_handler(message: types.Message):
     await message.reply(f"Привет {first_name}, тут ты можешь отправить нам мемес. Принимаю только видосики и картинощки")
 
 
-@router.message(F.content_type.in_({'photo'}), F.chat.type == "private")
 async def work_send_meme(message: types.Message):
     uid = message.from_user.id
     if uid in config.banned_user_ids:
@@ -44,19 +57,18 @@ async def work_send_meme(message: types.Message):
         text = f"Мем прислал: {sender_name} {sender_lastname}"
 
         if message.media_group_id:
-            if message.media_group_id not in media_groups:
-                media_groups[message.media_group_id] = []
+            group_id = message.media_group_id
 
-            media_groups[message.media_group_id].append(types.InputMediaPhoto(media=message.photo[-1].file_id))
+            if group_id not in media_groups:
+                media_groups[group_id] = []
+
+            media_groups[group_id].append(types.InputMediaPhoto(media=message.photo[-1].file_id))
 
             logging.info('id of file %s', message.photo[-1].file_id)
 
-            await asyncio.sleep(1)
+            if group_id not in media_group_timers:
+                media_group_timers[group_id] = asyncio.create_task(group_send_delay(group_id))
 
-            if message.media_group_id in media_groups:
-                await memes.send_media_group(channel, media=media_groups[message.media_group_id])
-                await message.reply("Спасибо за мемы! Пока-пока")
-                del media_groups[message.media_group_id]
         else:
             logging.info('id of file %s', message.photo[-1].file_id)
             await memes.send_photo(channel, photo=message.photo[-1].file_id, caption=text)
