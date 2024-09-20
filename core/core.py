@@ -21,17 +21,19 @@ media_groups = {}
 media_group_timers = {}
 
 
-async def send_media_group(group_id, caption):
+async def send_media_group(group_id, caption, message: types.Message):
     if group_id in media_groups:
         media_groups[group_id][0].caption = caption
         await memes.send_media_group(channel, media=media_groups[group_id])
         del media_groups[group_id]
         del media_group_timers[group_id]
 
+        await message.reply("Спасибо за котю! Приходи еще")
 
-async def group_send_delay(group_id, caption):
+
+async def group_send_delay(group_id, caption, message: types.Message):
     await asyncio.sleep(5)
-    await send_media_group(group_id, caption)
+    await send_media_group(group_id, caption, message)
 
 @router.message(Command(commands="start", ignore_case=True), F.chat.type == "private")
 async def start_handler(message: types.Message):
@@ -66,7 +68,7 @@ async def work_send_meme(message: types.Message):
             logging.info('id of file %s', message.photo[-1].file_id)
 
             if group_id not in media_group_timers:
-                media_group_timers[group_id] = asyncio.create_task(group_send_delay(group_id, caption))
+                media_group_timers[group_id] = asyncio.create_task(group_send_delay(group_id, caption, message))
 
         else:
             logging.info('id of file %s', message.photo[-1].file_id)
