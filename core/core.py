@@ -39,6 +39,7 @@ async def start_handler(message: types.Message):
     await message.reply(f"Привет {first_name}, тут ты можешь отправить нам мемес. Принимаю только видосики и картинощки")
 
 
+@router.message(F.content_type.in_({'photo'}), F.chat.type == "private")
 async def work_send_meme(message: types.Message):
     uid = message.from_user.id
     if uid in config.banned_user_ids:
