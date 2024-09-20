@@ -24,35 +24,39 @@ async def start_handler(message: types.Message):
 
 
 @router.message(F.content_type.in_({'photo'}), F.chat.type == "private")
-async def work_send_tax(message: types.Message):
+async def work_send_meme(message: types.Message):
     uid = message.from_user.id
     if uid in config.banned_user_ids:
         text = "не хочу с тобой разговаривать"
         await message.reply(text, parse_mode=None)
     else:
         logging.info('info about message %s', message)
-        logging.info('id of file %s', message.photo[-1].file_id)
-        if message.chat.first_name is None:
-            sender_name = message.chat.username
-        elif message.chat.first_name == "":
-            sender_name = message.chat.username
-        elif message.chat.first_name == "\xad":
+
+        if message.chat.first_name is None or message.chat.first_name == "" or message.chat.first_name == "\xad":
             sender_name = message.chat.username
         else:
             sender_name = message.chat.first_name
 
-        if message.chat.last_name is None:
-            sender_lastname = ' '
-        else:
-            sender_lastname = message.chat.last_name
+        sender_lastname = message.chat.last_name if message.chat.last_name else ' '
 
         text = f"Мем прислал: {sender_name} {sender_lastname}"
-        await memes.send_photo(channel, photo=message.photo[-1].file_id, caption=text)
-        await message.reply("Спасибо за мем! Пока-пока")
+
+        if message.media_group_id:
+            media_group = []
+            for photo in message.photo:
+                media_group.append(types.InputMediaPhoto(media=photo.file_id, caption=text))
+                logging.info('id of file %s', photo.file_id)
+
+            await memes.send_media_group(channel, media=media_group)
+            await message.reply("Спасибо за мемы! Пока-пока")
+        else:
+            logging.info('id of file %s', message.photo[-1].file_id)
+            await memes.send_photo(channel, photo=message.photo[-1].file_id, caption=text)
+            await message.reply("Спасибо за мем! Пока-пока")
 
 
 @router.message(F.content_type.in_({'video'}), F.chat.type == "private")
-async def work_send_demo(message: types.Message):
+async def work_send_meme_video(message: types.Message):
     uid = message.from_user.id
     if uid in config.banned_user_ids:
         text = "не хочу с тобой разговаривать"
