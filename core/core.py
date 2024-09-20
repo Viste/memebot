@@ -21,23 +21,22 @@ media_groups = {}
 media_group_timers = {}
 
 
-async def send_media_group(group_id):
+async def send_media_group(group_id, caption):
     if group_id in media_groups:
+        media_groups[group_id][0].caption = caption
         await memes.send_media_group(channel, media=media_groups[group_id])
         del media_groups[group_id]
         del media_group_timers[group_id]
 
 
-async def group_send_delay(group_id):
+async def group_send_delay(group_id, caption):
     await asyncio.sleep(5)
-    await send_media_group(group_id)
+    await send_media_group(group_id, caption)
 
 @router.message(Command(commands="start", ignore_case=True), F.chat.type == "private")
 async def start_handler(message: types.Message):
     first_name = message.from_user.first_name
-
     await message.reply(f"Привет {first_name}, тут ты можешь отправить нам мемес. Принимаю только видосики и картинощки")
-
 
 @router.message(F.content_type.in_({'photo'}), F.chat.type == "private")
 async def work_send_meme(message: types.Message):
@@ -48,14 +47,13 @@ async def work_send_meme(message: types.Message):
     else:
         logging.info('info about message %s', message)
 
-        # Определяем имя и фамилию пользователя
         if message.chat.first_name is None or message.chat.first_name == "" or message.chat.first_name == "\xad":
             sender_name = message.chat.username
         else:
             sender_name = message.chat.first_name
 
         sender_lastname = message.chat.last_name if message.chat.last_name else ' '
-        text = f"Мем прислал: {sender_name} {sender_lastname}"
+        caption = f"Мем прислал: {sender_name} {sender_lastname}"
 
         if message.media_group_id:
             group_id = message.media_group_id
@@ -68,11 +66,11 @@ async def work_send_meme(message: types.Message):
             logging.info('id of file %s', message.photo[-1].file_id)
 
             if group_id not in media_group_timers:
-                media_group_timers[group_id] = asyncio.create_task(group_send_delay(group_id))
+                media_group_timers[group_id] = asyncio.create_task(group_send_delay(group_id, caption))
 
         else:
             logging.info('id of file %s', message.photo[-1].file_id)
-            await memes.send_photo(channel, photo=message.photo[-1].file_id, caption=text)
+            await memes.send_photo(channel, photo=message.photo[-1].file_id, caption=caption)
             await message.reply("Спасибо за мем! Пока-пока")
 
 
