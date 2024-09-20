@@ -20,8 +20,7 @@ oai = OpenAI()
 async def start_handler(message: types.Message):
     first_name = message.from_user.first_name
 
-    await message.reply(f"Привет {first_name}, тут ты можешь отправить нам мемес. Принимаю только видосики и картинощки\n"
-                            f"А еще связать свой аккаунт с сайтом dev-vlab.ru через команду /start auth")
+    await message.reply(f"Привет {first_name}, тут ты можешь отправить нам мемес. Принимаю только видосики и картинощки")
 
 
 @router.message(F.content_type.in_({'photo'}), F.chat.type == "private")
