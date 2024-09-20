@@ -1,3 +1,4 @@
+import asyncio
 import html
 import logging
 
@@ -33,17 +34,16 @@ async def work_send_meme(message: types.Message):
     else:
         logging.info('info about message %s', message)
 
+        # Определяем имя и фамилию пользователя
         if message.chat.first_name is None or message.chat.first_name == "" or message.chat.first_name == "\xad":
             sender_name = message.chat.username
         else:
             sender_name = message.chat.first_name
 
         sender_lastname = message.chat.last_name if message.chat.last_name else ' '
-
         text = f"Мем прислал: {sender_name} {sender_lastname}"
 
         if message.media_group_id:
-
             if message.media_group_id not in media_groups:
                 media_groups[message.media_group_id] = []
 
@@ -51,7 +51,9 @@ async def work_send_meme(message: types.Message):
 
             logging.info('id of file %s', message.photo[-1].file_id)
 
-            if message.media_group_id in media_groups and len(media_groups[message.media_group_id]) == message.media_group_id_length:
+            await asyncio.sleep(1)
+
+            if message.media_group_id in media_groups:
                 await memes.send_media_group(channel, media=media_groups[message.media_group_id])
                 await message.reply("Спасибо за мемы! Пока-пока")
                 del media_groups[message.media_group_id]
