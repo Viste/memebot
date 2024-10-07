@@ -5,8 +5,9 @@ import re
 
 from aiogram import types
 from aiogram.enums import ParseMode
-from core.tools.mentality import UserHistoryManager
 from openai import AsyncOpenAI
+
+from tools.mentality import UserHistoryManager
 
 logger = logging.getLogger(__name__)
 
