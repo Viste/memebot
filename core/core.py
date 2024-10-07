@@ -106,7 +106,7 @@ async def comment_on_photo(message: types.Message):
     file_info = await message.bot.get_file(message.photo[-1].file_id)
     image_url = f"https://api.telegram.org/file/bot{config.token}/{file_info.file_path}"
 
-    comment = await openai.generate_comment_from_image(image_url)
+    comment = await openai.generate_comment_from_image(image_url, message.chat.id)
 
     await message.reply(comment)
 
@@ -116,7 +116,7 @@ async def process_ask_chat(message: types.Message) -> None:
     logger.info("%s", message)
     text = html.escape(message.text)
 
-    replay_text = await oai.get_resp(text, message.from_user.id)
+    replay_text = await oai.get_resp(text, message.chat.id)
     chunks = split_into_chunks(replay_text)
     for index, chunk in enumerate(chunks):
         if index == 0:

@@ -45,7 +45,7 @@ async def send_reply(message: types.Message, text: str) -> None:
     try:
         history = UserHistoryManager()
         await message.reply(text, parse_mode=ParseMode.HTML)
-        await history.add_to_history(message.from_user.id, "assistant", text)
+        await history.add_to_history(message.chat.id, "assistant", text)
     except Exception as err:
         logger.info('Exception while sending reply: %s', err)
         try:
@@ -66,7 +66,7 @@ class OpenAIVision:
         self.client = AsyncOpenAI(api_key=os.getenv('OPENAI_API_KEY'), base_url='http://31.172.78.152:9000/v1')
         self.args = {"max_tokens": 1024}
 
-    async def generate_comment_from_image(self, image_url: str) -> str:
+    async def generate_comment_from_image(self, image_url: str, user_id: int) -> str:
         try:
             if user_id not in self.history.user_dialogs:
                 await self.history.reset_history(user_id)
