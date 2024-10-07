@@ -1,4 +1,4 @@
-aiogram==3.11.0
+aiogram
 requests
 PyJWT
 aiohttp
