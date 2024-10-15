@@ -30,7 +30,7 @@ def load_config():
 
 config = load_config()
 
-SPAM_LINKS_REGEX = re.compile(r"(https?:\/\/)?([\w\-]+\.(xyz|binance|waxu|foxu|opensea))|[\w\u2060]", re.IGNORECASE)
+SPAM_LINKS_REGEX = re.compile(r"(https?:\/\/)?([\w\-]+\.(xyz|binance|waxu|foxu|opensea))", re.IGNORECASE)
 group_id = "-1001564920057"
 
 def is_spam(message: types.Message):
