@@ -57,7 +57,7 @@ async def send_reply(message: types.Message, text: str) -> None:
 class OpenAIVision:
     def __init__(self):
         super().__init__()
-        self.model = "gpt-4o"
+        self.model = "gpt-4o-mini"
         self.max_tokens = 8196
         self.config_tokens = 1024
         self.max_history_size = 30
@@ -180,4 +180,4 @@ class OpenAIVision:
                 return "Фото без комментария!"
         except Exception as e:
             logging.error(f"Error generating comment for image: {e}")
-            return "Не удалось сгенерировать комментарий к этому фото."
+            return "Кончились деньги или что-то пошло не так."
