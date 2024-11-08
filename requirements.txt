@@ -6,3 +6,4 @@ python-dotenv
 jwt
 openai
 tiktoken
+opencv-python

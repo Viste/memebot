@@ -65,18 +65,8 @@ class OpenAIVision:
         self.history = UserHistoryManager()
         self.client = AsyncOpenAI(api_key=os.getenv('OPENAI_API_KEY'), base_url='http://31.172.78.152:9000/v1')
         self.args = {"max_tokens": 1024}
-
-    async def generate_comment_from_image(self, image_url: str, user_id: int) -> str:
-        try:
-            if user_id not in self.history.user_dialogs:
-                await self.history.reset_history(user_id)
-
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": """ {
+        self.persona_description = """
+                        {
                           "persona": {
                             "name": "Сталин Иосиф Виссарионович",
                             "whoami": "Я — товарищ Сталин, предводитель мемного движения и защитник качественного юмора в паблике «Подписчик Сталина». Да, я строг, но даже мне свойственно смеяться над мемами. Я люблю сарказм, маты, и не вижу проблем в грубом юморе, если это по делу. Котики — это святое. Я строгий, но справедливый: мемы должны иметь смысл, но иногда можно расслабиться и просто посмеяться от души.",
@@ -155,12 +145,21 @@ class OpenAIVision:
                                 "Даже не мемы я оценю по существу, главное — настроение и юмор!" ]
                           }
                         } """
-                    },
+
+    async def generate_comment_from_image(self, image_url: str, user_id: int) -> str:
+        try:
+            if user_id not in self.history.user_dialogs:
+                await self.history.reset_history(user_id)
+
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": self.persona_description},
                     {
                         "role": "user",
                         "content": [
                             {"type": "text",
-                             "text": "Ну вот и дождались! Давай посмотрим, что тут за мем завезли. Если я усмехнусь — это уже успех. Ну а если вдруг захочу отправить тебя в Сибирь, не обижайся. Посмотрим, кто победит — твой юмор или моя строгость."},
+                             "text": "Ну вот и дождались! Давай посмотрим, что тут за мем завезли. Если я усмехнусь — это уже успех. Ну а если вдруг захочу отправить тебя в Сибирь, трудовой лагер или на Колыму, не обижайся. Посмотрим, кто победит — твой юмор или моя строгость."},
                             {
                                 "type": "image_url",
                                 "image_url": {
@@ -180,4 +179,64 @@ class OpenAIVision:
                 return "Фото без комментария!"
         except Exception as e:
             logging.error(f"Error generating comment for image: {e}")
+            return "Кончились деньги или что-то пошло не так."
+
+    async def generate_comment_from_images(self, image_urls: list[str], user_id: int) -> str:
+        try:
+            if user_id not in self.history.user_dialogs:
+                await self.history.reset_history(user_id)
+
+            user_content = [
+                               {"type": "text",
+                                "text": "Ну что, давайте посмотрим, что тут за группа мемов! Если я усмехнусь — это уже успех. Ну а если вдруг захочу отправить тебя в Сибирь, трудовой лагер или на Колыму, не обижайся. Посмотрим, кто победит — твой юмор или моя строгость."}
+                           ] + [
+                               {"type": "image_url", "image_url": {"url": image_url}}
+                               for image_url in image_urls
+                           ]
+
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": self.persona_description},
+                    {"role": "user", "content": user_content}
+                ],
+                max_tokens=300
+            )
+
+            if response.choices and len(response.choices) > 0:
+                return response.choices[0].message.content
+            else:
+                return "Группа изображений без комментария!"
+        except Exception as e:
+            logging.error(f"Error generating comment for images: {e}")
+            return "Кончились деньги или что-то пошло не так."
+
+    async def generate_comment_from_video_frames(self, base64_frames: list[str], user_id: int) -> str:
+        try:
+            if user_id not in self.history.user_dialogs:
+                await self.history.reset_history(user_id)
+
+            user_content = [
+                               {"type": "text",
+                                "text": "Ну что, давайте посмотрим, что тут за мемное видео! Я оценю по первым нескольким кадрам."}
+                           ] + [
+                               {"image": frame}
+                               for frame in base64_frames
+                           ]
+
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": self.persona_description},
+                    {"role": "user", "content": user_content}
+                ],
+                max_tokens=300
+            )
+
+            if response.choices and len(response.choices) > 0:
+                return response.choices[0].message.content
+            else:
+                return "Видео без комментария!"
+        except Exception as e:
+            logging.error(f"Error generating comment for video frames: {e}")
             return "Кончились деньги или что-то пошло не так."
