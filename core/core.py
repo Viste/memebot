@@ -2,6 +2,7 @@ import asyncio
 import base64
 import html
 import logging
+import os
 
 import cv2
 from aiogram import types, F, Router
@@ -130,6 +131,10 @@ async def comment_on_video(message: types.Message):
     logging.info(
         f"Received video from channel {message.forward_from_chat.title if message.forward_from_chat else 'unknown'} in chat {message.chat.id}")
 
+    temp_folder = "temp"
+    if not os.path.exists(temp_folder):
+        os.makedirs(temp_folder)
+
     file_info = await message.bot.get_file(message.video.file_id)
 
     video_path = f"temp/{message.video.file_id}.mp4"
@@ -155,7 +160,6 @@ def extract_video_frames(video_path: str, num_frames: int = 5) -> list[str]:
         if not success:
             break
 
-        # Конвертируем фрейм в JPEG и затем в base64
         _, buffer = cv2.imencode(".jpg", frame)
         base64_frame = base64.b64encode(buffer.tobytes()).decode("utf-8")
         base64_frames.append(base64_frame)
