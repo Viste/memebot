@@ -136,18 +136,26 @@ async def comment_on_video(message: types.Message):
         os.makedirs(temp_folder)
 
     file_info = await message.bot.get_file(message.video.file_id)
+    video_path = os.path.join(temp_folder, f"{message.video.file_id}.mp4")
 
-    video_path = f"temp/{message.video.file_id}.mp4"
-    await message.bot.download_file(file_info.file_path, video_path)
+    try:
+        await message.bot.download_file(file_info.file_path, video_path)
 
-    base64_frames = extract_video_frames(video_path)
+        base64_frames = extract_video_frames(video_path)
 
-    if base64_frames:
-        comment = await openai.generate_comment_from_video_frames(base64_frames, message.chat.id)
+        if base64_frames:
+            comment = await openai.generate_comment_from_video_frames(base64_frames, message.chat.id)
+            await message.reply(comment)
+        else:
+            await message.reply("Не удалось обработать видео.")
 
-        await message.reply(comment)
-    else:
-        await message.reply("Не удалось обработать видео.")
+    except Exception as e:
+        logging.error(f"Error during video processing: {e}")
+        await message.reply("Возникла ошибка при обработке видео.")
+
+    finally:
+        if os.path.exists(video_path):
+            os.remove(video_path)
 
 
 def extract_video_frames(video_path: str, num_frames: int = 5) -> list[str]:
