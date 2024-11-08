@@ -169,7 +169,8 @@ class OpenAIVision:
                         ],
                     }
                 ],
-                max_tokens=300
+                max_tokens=300,
+                timeout=120
             )
 
             if response.choices and len(response.choices) > 0:
@@ -200,7 +201,8 @@ class OpenAIVision:
                     {"role": "system", "content": self.persona_description},
                     {"role": "user", "content": user_content}
                 ],
-                max_tokens=300
+                max_tokens=300,
+                timeout=120
             )
 
             if response.choices and len(response.choices) > 0:
@@ -230,7 +232,8 @@ class OpenAIVision:
                     {"role": "system", "content": self.persona_description},
                     {"role": "user", "content": user_content}
                 ],
-                max_tokens=300
+                max_tokens=300,
+                timeout=300
             )
 
             if response.choices and len(response.choices) > 0:
