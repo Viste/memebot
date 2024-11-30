@@ -1,12 +1,16 @@
+import asyncio
+import base64
 import json
 import logging
 import os
 import re
 
+import cv2
 from aiogram import types
 from aiogram.enums import ParseMode
 from openai import AsyncOpenAI
 
+from main import memes
 from tools.mentality import UserHistoryManager
 
 logger = logging.getLogger(__name__)
@@ -34,6 +38,10 @@ SPAM_LINKS_REGEX = re.compile(
     r"\b(?:opensea|binance|waxu|foxu|xyz|nft|collection|dropped|sold out|act fast|try to get)\b.*(?:https?:\/\/\S+)?",
     re.IGNORECASE)
 group_id = "-1001564920057"
+media_groups = {}
+media_group_timers = {}
+channel = config.channel
+
 
 def is_spam(message: types.Message):
     return bool(message.text and SPAM_LINKS_REGEX.search(message.text))
@@ -55,6 +63,39 @@ async def send_reply(message: types.Message, text: str) -> None:
         except Exception as error:
             logger.info('Last exception from Core: %s', error)
 
+
+async def send_media_group(group_id, caption, message: types.Message):
+    if group_id in media_groups:
+        media_groups[group_id][0].caption = caption
+        await memes.send_media_group(channel, media=media_groups[group_id])
+        del media_groups[group_id]
+        del media_group_timers[group_id]
+
+        await message.reply("Спасибо за мем! Приходи еще")
+
+
+async def group_send_delay(group_id, caption, message: types.Message):
+    await asyncio.sleep(5)
+    await send_media_group(group_id, caption, message)
+
+
+def extract_video_frames(video_path: str, num_frames: int = 5) -> list[str]:
+    video = cv2.VideoCapture(video_path)
+    base64_frames = []
+    frame_count = 0
+
+    while video.isOpened() and frame_count < num_frames:
+        success, frame = video.read()
+        if not success:
+            break
+
+        _, buffer = cv2.imencode(".jpg", frame)
+        base64_frame = base64.b64encode(buffer.tobytes()).decode("utf-8")
+        base64_frames.append(base64_frame)
+        frame_count += 1
+
+    video.release()
+    return base64_frames
 
 class OpenAIVision:
     def __init__(self):
