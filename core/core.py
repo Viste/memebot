@@ -8,7 +8,6 @@ from main import memes
 from tools.mentality import OpenAI
 from tools.utils import OpenAIVision
 from tools.utils import config
-from tools.utils import group_send_delay
 from tools.utils import is_spam, group_id
 from tools.utils import media_groups, media_group_timers
 
@@ -38,6 +37,21 @@ async def group_comment_delay(group_id):
 
     del media_groups[group_id]
     del media_group_timers[group_id]
+
+
+async def send_media_group(group_id, caption, message: types.Message):
+    if group_id in media_groups:
+        media_groups[group_id][0].caption = caption
+        await memes.send_media_group(channel, media=media_groups[group_id])
+        del media_groups[group_id]
+        del media_group_timers[group_id]
+
+        await message.reply("Спасибо за мем! Приходи еще")
+
+
+async def group_send_delay(group_id, caption, message: types.Message):
+    await asyncio.sleep(5)
+    await send_media_group(group_id, caption, message)
 
 @router.message(Command(commands="start", ignore_case=True), F.chat.type == "private")
 async def start_handler(message: types.Message):
