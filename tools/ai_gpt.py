@@ -11,7 +11,6 @@ logger = logging.getLogger(__name__)
 class UserHistoryManager:
     _instance = None
     user_dialogs: dict[int, list] = {}
-    lock = asyncio.Lock()
 
     def __init__(self):
         self.content = """
@@ -102,24 +101,20 @@ class UserHistoryManager:
         return cls._instance
 
     async def add_to_history(self, user_id, role, content):
-        async with self.lock:
             if user_id not in self.user_dialogs:
                 await self.reset_history(user_id)
             self.user_dialogs[user_id].append({"role": role, "content": content})
 
     async def reset_history(self, user_id, content=''):
-        async with self.lock:
             if content == '':
                 content = self.content
             self.user_dialogs[user_id] = [{"role": "system", "content": content}]
 
     async def trim_history(self, user_id, max_history_size):
-        async with self.lock:
             if user_id in self.user_dialogs:
                 self.user_dialogs[user_id] = self.user_dialogs[user_id][-max_history_size:]
 
     async def get_user_history(self, user_id):
-        async with self.lock:
             if user_id not in self.user_dialogs:
                 await self.reset_history(user_id)
             return self.user_dialogs[user_id]
