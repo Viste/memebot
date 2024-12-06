@@ -145,20 +145,30 @@ class OpenAI:
 
     async def generate_comment_from_image(self, image_url: str, user_id: int) -> str:
         try:
-            user_dialogs = await self.history.get_user_history(user_id)
-
+            if user_id not in self.history.user_dialogs:
+                await self.history.reset_history(user_id)
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": self.history.content},
-                    {"role": "user",
-                     "content": f"Ну вот и дождались! Давай посмотрим, что тут за мем завезли. Если я усмехнусь — это уже успех. Ну а если вдруг захочу отправить тебя в Сибирь, трудовой лагер или на Колыму, не обижайся. Посмотрим, кто победит — твой юмор или моя строгость.: [Image: {image_url}]"}
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text",
+                             "text": "Ну вот и дождались! Давай посмотрим, что тут за мем завезли. Если я усмехнусь — это уже успех. Ну а если вдруг захочу отправить тебя в Сибирь, трудовой лагер или на Колыму, не обижайся. Посмотрим, кто победит — твой юмор или моя строгость."},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": image_url
+                                },
+                            },
+                        ],
+                    }
                 ],
                 max_tokens=self.args['max_tokens'],
                 timeout=120
             )
-
-            if response.choices:
+            if response.choices and len(response.choices) > 0:
                 comment = response.choices[0].message.content
                 return comment
             else:
@@ -169,11 +179,15 @@ class OpenAI:
 
     async def generate_comment_from_images(self, image_urls: list[str], user_id: int) -> str:
         try:
-            user_dialogs = await self.history.get_user_history(user_id)
-
-            user_content = "Ну что, давайте посмотрим, что тут за группа мемов! Если я усмехнусь — это уже успех. Ну а если вдруг захочу отправить тебя в Сибирь, трудовой лагер или на Колыму, не обижайся. Посмотрим, кто победит — твой юмор или моя строгость: " + ", ".join(
-                [f"[Image: {url}]" for url in image_urls])
-
+            if user_id not in self.history.user_dialogs:
+                await self.history.reset_history(user_id)
+            user_content = [
+                               {"type": "text",
+                                "text": "Ну что, давайте посмотрим, что тут за группа мемов! Если я усмехнусь — это уже успех. Ну а если вдруг захочу отправить тебя в Сибирь, трудовой лагер или на Колыму, не обижайся. Посмотрим, кто победит — твой юмор или моя строгость."}
+                           ] + [
+                               {"type": "image_url", "image_url": {"url": image_url}}
+                               for image_url in image_urls
+                           ]
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -183,21 +197,24 @@ class OpenAI:
                 max_tokens=self.args['max_tokens'],
                 timeout=120
             )
-
-            if response.choices:
+            if response.choices and len(response.choices) > 0:
                 return response.choices[0].message.content
             else:
                 return "Группа изображений без комментария!"
         except Exception as e:
             logging.error(f"Error generating comment for images: {e}")
             return "Кончились деньги или что-то пошло не так."
-
     async def generate_comment_from_video_frames(self, base64_frames: list[str], user_id: int) -> str:
         try:
-            user_dialogs = await self.history.get_user_history(user_id)
-
-            user_content = "Ну что, давайте посмотрим, что тут за мемное видео! Я оценю по первым нескольким кадрам."
-
+            if user_id not in self.history.user_dialogs:
+                await self.history.reset_history(user_id)
+            user_content = [
+                               {"type": "text",
+                                "text": "Ну что, давайте посмотрим, что тут за мемное видео! Я оценю по первым нескольким кадрам."}
+                           ] + [
+                               {"image": frame}
+                               for frame in base64_frames
+                           ]
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -207,8 +224,7 @@ class OpenAI:
                 max_tokens=self.args['max_tokens'],
                 timeout=300
             )
-
-            if response.choices:
+            if response.choices and len(response.choices) > 0:
                 return response.choices[0].message.content
             else:
                 return "Видео без комментария!"
