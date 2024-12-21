@@ -32,7 +32,7 @@ def load_config():
 config = load_config()
 
 SPAM_LINKS_REGEX = re.compile(
-    r"\b(?:opensea|binance|waxu|foxu|xyz|nft|collection|dropped|sold out|act fast|try to get)\b.*(?:https?:\/\/\S+)?",
+    r"\b(?:opensea|binance|waxu|foxu|xyz|hewuf|nft|collection|dropped|sold out|act fast|try to get)\b.*(?:https?:\/\/\S+)?",
     re.IGNORECASE)
 group_id = "-1001564920057"
 media_groups = {}
