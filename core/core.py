@@ -1,7 +1,6 @@
 import asyncio
 import html
 import logging
-import os
 
 from aiogram import types, F, Router
 from aiogram.filters.command import Command
@@ -9,9 +8,9 @@ from aiogram.filters.command import Command
 from main import memes
 from tools.ai_gpt import OpenAI
 from tools.utils import config
-from tools.utils import extract_video_frames, send_reply, split_into_chunks
 from tools.utils import is_spam, group_id
 from tools.utils import media_groups, media_group_timers
+from tools.utils import send_reply, split_into_chunks
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -159,36 +158,36 @@ async def comment_on_photo(message: types.Message):
             await message.reply("Не удалось получить информацию о фотографии. Попробуйте еще раз.")
 
 
-@router.message(F.content_type.in_({'video'}), F.chat.type.in_({'group', 'supergroup'}))
-async def comment_on_video(message: types.Message):
-    logging.info(
-        f"Received video from channel {message.forward_from_chat.title if message.forward_from_chat else 'unknown'} in chat {message.chat.id}")
+# @router.message(F.content_type.in_({'video'}), F.chat.type.in_({'group', 'supergroup'}))
+# async def comment_on_video(message: types.Message):
+#    logging.info(
+#        f"Received video from channel {message.forward_from_chat.title if message.forward_from_chat else 'unknown'} in chat {message.chat.id}")
 
-    temp_folder = "temp"
-    if not os.path.exists(temp_folder):
-        os.makedirs(temp_folder)
+#    temp_folder = "temp"
+#    if not os.path.exists(temp_folder):
+#        os.makedirs(temp_folder)
 
-    file_info = await message.bot.get_file(message.video.file_id)
-    video_path = os.path.join(temp_folder, f"{message.video.file_id}.mp4")
+#    file_info = await message.bot.get_file(message.video.file_id)
+#    video_path = os.path.join(temp_folder, f"{message.video.file_id}.mp4")
 
-    try:
-        await message.bot.download_file(file_info.file_path, video_path)
+#    try:
+#        await message.bot.download_file(file_info.file_path, video_path)
 
-        base64_frames = extract_video_frames(video_path)
+#        base64_frames = extract_video_frames(video_path)
 
-        if base64_frames:
-            comment = await openai.generate_comment_from_video_frames(base64_frames, message.chat.id)
-            await message.reply(comment)
-        else:
-            await message.reply("Не удалось обработать видео.")
+#        if base64_frames:
+#            comment = await openai.generate_comment_from_video_frames(base64_frames, message.chat.id)
+#            await message.reply(comment)
+#        else:
+#            await message.reply("Не удалось обработать видео.")
 
-    except Exception as e:
-        logging.error(f"Error during video processing: {e}")
-        await message.reply("Возникла ошибка при обработке видео.")
+#    except Exception as e:
+#        logging.error(f"Error during video processing: {e}")
+#        await message.reply("Возникла ошибка при обработке видео.")
 
-    finally:
-        if os.path.exists(video_path):
-            os.remove(video_path)
+#    finally:
+#        if os.path.exists(video_path):
+#            os.remove(video_path)
 
 
 @router.message(F.reply_to_message.from_user.is_bot)
