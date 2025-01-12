@@ -140,7 +140,7 @@ async def comment_on_photo(message: types.Message):
     else:
         try:
             logging.info(
-                f"Received forwarded photo from channel {message.forward_from_chat.title if message.forward_from_chat else 'unknown'} in chat {message.chat.id}")
+                f"Received forwarded photo from channel {message.forward_from_chat.title if message.forward_from_chat else 'unknown'} and user {message.from_user.username} in chat {message.chat.id}")
 
             file_info = await message.bot.get_file(message.photo[-1].file_id)
             image_url = f"https://api.telegram.org/file/bot{config.token}/{file_info.file_path}"
@@ -217,4 +217,5 @@ async def handle_group_messages(message: types.Message):
         except Exception as e:
             logger.error(f"Error banning user {message.from_user.id}: {e}")
     else:
-        logging.info(f"Received message from {message.from_user.first_name}: {message.text}")
+        logging.info(
+            f"Received message from {message.from_user.first_name} {message.from_user.username}: {message.text}")
