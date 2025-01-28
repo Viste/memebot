@@ -124,38 +124,37 @@ async def work_send_meme_video(message: types.Message):
             logger.error(f"Error sending video: {e}")
 
 
+# @router.message(F.content_type.in_({'photo'}), F.chat.type.in_({'group', 'supergroup'}))
+# async def comment_on_photo(message: types.Message):
+#    msg_group_id = message.media_group_id#
 
-@router.message(F.content_type.in_({'photo'}), F.chat.type.in_({'group', 'supergroup'}))
-async def comment_on_photo(message: types.Message):
-    msg_group_id = message.media_group_id
+#    if msg_group_id:
+#        if msg_group_id not in media_groups:
+#            media_groups[msg_group_id] = []
 
-    if msg_group_id:
-        if msg_group_id not in media_groups:
-            media_groups[msg_group_id] = []
+#        media_groups[msg_group_id].append(message)
 
-        media_groups[msg_group_id].append(message)
+#        if msg_group_id not in media_group_timers:
+#            media_group_timers[msg_group_id] = asyncio.create_task(group_comment_delay(msg_group_id))
+#    else:
+#        try:
+#            logging.info(
+#                f"Received forwarded photo from channel {message.forward_from_chat.title if message.forward_from_chat else 'unknown'} and user {message.from_user.username} in chat {message.chat.id}")
 
-        if msg_group_id not in media_group_timers:
-            media_group_timers[msg_group_id] = asyncio.create_task(group_comment_delay(msg_group_id))
-    else:
-        try:
-            logging.info(
-                f"Received forwarded photo from channel {message.forward_from_chat.title if message.forward_from_chat else 'unknown'} and user {message.from_user.username} in chat {message.chat.id}")
+#            file_info = await message.bot.get_file(message.photo[-1].file_id)
+#            image_url = f"https://api.telegram.org/file/bot{config.token}/{file_info.file_path}"
+#            logger.info(f"Image URL: {image_url}")
 
-            file_info = await message.bot.get_file(message.photo[-1].file_id)
-            image_url = f"https://api.telegram.org/file/bot{config.token}/{file_info.file_path}"
-            logger.info(f"Image URL: {image_url}")
-
-            try:
-                comment = await openai.generate_comment_from_image(image_url, message.chat.id)
-                await message.reply(comment)
-                logger.info(f"Received comment from OpenAI: {comment}")
-            except Exception as e:
-                logger.error(f"Error generating comment for single photo: {e}")
-                await message.reply("Не удалось обработать фотографию. Попробуйте еще раз.")
-        except Exception as e:
-            logger.error(f"Error getting file info for single photo: {e}")
-            await message.reply("Не удалось получить информацию о фотографии. Попробуйте еще раз.")
+#            try:
+#                comment = await openai.generate_comment_from_image(image_url, message.chat.id)
+#                await message.reply(comment)
+#                logger.info(f"Received comment from OpenAI: {comment}")
+#            except Exception as e:
+#                logger.error(f"Error generating comment for single photo: {e}")
+#                await message.reply("Не удалось обработать фотографию. Попробуйте еще раз.")
+#        except Exception as e:
+#            logger.error(f"Error getting file info for single photo: {e}")
+#            await message.reply("Не удалось получить информацию о фотографии. Попробуйте еще раз.")
 
 
 # @router.message(F.content_type.in_({'video'}), F.chat.type.in_({'group', 'supergroup'}))
