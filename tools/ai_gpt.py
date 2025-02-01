@@ -309,7 +309,7 @@ class UserHistoryManager:
 
     async def reset_history(self, user_id, content=''):
             if content == '':
-                content = self.content
+                content = self.get_random_system_message()
             self.user_dialogs[user_id] = [{"role": "system", "content": content}]
 
     async def trim_history(self, user_id, max_history_size):
