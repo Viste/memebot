@@ -48,9 +48,6 @@ def split_into_chunks(text: str, chunk_size: int = 4096) -> list[str]:
 
 
 async def send_reply(message: types.Message, text: str) -> None:
-    if message.chat.id != group_id:
-        await message.reply("Хорошая попытка, но я сделан только для паблика @stalinfollower",
-                            parse_mode=ParseMode.HTML)
     try:
         history = UserHistoryManager()
         await message.reply(text, parse_mode=ParseMode.HTML)
