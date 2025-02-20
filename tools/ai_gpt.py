@@ -268,23 +268,40 @@ SYSTEM_MESSAGE_VARIANTS = [
     """
 ]
 
-
 class MemeCommentHistoryManager:
     def __init__(self):
-        # Хранение в формате: {meme_id: [комментарий1, комментарий2, ...]}
-        self.meme_histories = {}
+        self.user_meme_histories = {}  # {user_id: {meme_id: [messages]}}
 
-    def add_comment(self, meme_id: str, comment: str):
-        if meme_id not in self.meme_histories:
-            self.meme_histories[meme_id] = []
-        self.meme_histories[meme_id].append(comment)
-        # Если комментариев больше 20, удаляем старейший
-        if len(self.meme_histories[meme_id]) > 20:
-            self.meme_histories[meme_id] = self.meme_histories[meme_id][-20:]
+    def add_meme_interaction(self, user_id: int, meme_id: str, role: str, content: str):
+        if user_id not in self.user_meme_histories:
+            self.user_meme_histories[user_id] = {}
 
-    def get_history(self, meme_id: str) -> list[str]:
-        return self.meme_histories.get(meme_id, [])
+        user_memes = self.user_meme_histories[user_id]
+        if meme_id not in user_memes:
+            user_memes[meme_id] = []
 
+        user_memes[meme_id].append({"role": role, "content": content})
+
+        if len(user_memes[meme_id]) > 20:
+            user_memes[meme_id] = user_memes[meme_id][-20:]
+
+        if len(user_memes) > 25:
+            oldest_meme = next(iter(user_memes.keys()))
+            del user_memes[oldest_meme]
+
+    def get_meme_history(self, user_id: int, meme_id: str) -> list:
+        return self.user_meme_histories.get(user_id, {}).get(meme_id, [])
+
+
+class CommentMemeManager:
+    def __init__(self):
+        self.comment_to_meme = {}  # {message_id: meme_id}
+
+    def add_comment(self, message_id: int, meme_id: str):
+        self.comment_to_meme[message_id] = meme_id
+
+    def get_meme_id(self, message_id: int) -> str | None:
+        return self.comment_to_meme.get(message_id)
 
 class UserHistoryManager:
     _instance = None
@@ -303,23 +320,50 @@ class UserHistoryManager:
         return random.choice(SYSTEM_MESSAGE_VARIANTS)
 
     async def add_to_history(self, user_id, role, content):
-            if user_id not in self.user_dialogs:
-                await self.reset_history(user_id)
-            self.user_dialogs[user_id].append({"role": role, "content": content})
+        if user_id not in self.user_dialogs:
+            await self.reset_history(user_id)
+        self.user_dialogs[user_id].append({"role": role, "content": content})
+        await self.trim_history(user_id)
 
     async def reset_history(self, user_id, content=''):
-            if content == '':
-                content = self.get_random_system_message()
-            self.user_dialogs[user_id] = [{"role": "system", "content": content}]
+        if content == '':
+            content = self.get_random_system_message()
+        self.user_dialogs[user_id] = [{"role": "system", "content": content}]
 
-    async def trim_history(self, user_id, max_history_size):
-            if user_id in self.user_dialogs:
-                self.user_dialogs[user_id] = self.user_dialogs[user_id][-max_history_size:]
+    async def trim_history(self, user_id, max_history_size=50):
+        if user_id in self.user_dialogs:
+            if len(self.user_dialogs[user_id]) > max_history_size:
+                try:
+                    summary = await self._summarise(self.user_dialogs[user_id])
+                    self.user_dialogs[user_id] = [
+                                                     {"role": "system", "content": self.content},
+                                                     {"role": "assistant", "content": summary}
+                                                 ] + self.user_dialogs[user_id][-20:]
+                except Exception as e:
+                    logger.error(f"Error summarizing history: {e}")
+                    self.user_dialogs[user_id] = self.user_dialogs[user_id][-max_history_size:]
+
+    async def _summarise(self, conversation) -> str:
+        try:
+            messages = [
+                {"role": "assistant", "content": "Кратко суммируй этот диалог на русском (не более 500 символов)"},
+                {"role": "user", "content": str(conversation)}
+            ]
+            response = await self.openai_client.client.chat.completions.create(
+                model=self.openai_client.model,
+                messages=messages,
+                temperature=0.2,
+                max_tokens=16384
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            logger.error(f"Ошибка суммаризации: {str(e)}")
+            return "Контекст предыдущего диалога утерян. Продолжаем беседу."
 
     async def get_user_history(self, user_id):
-            if user_id not in self.user_dialogs:
-                await self.reset_history(user_id)
-            return self.user_dialogs[user_id]
+        if user_id not in self.user_dialogs:
+            await self.reset_history(user_id)
+        return self.user_dialogs[user_id]
 
 
 class OpenAI:
