@@ -216,8 +216,6 @@ async def handle_group_messages(message: types.Message):
     logger.info("%s", message)
     logging.info(
         f"Received message in chatid {message.chat.id}, chat name: {message.chat.title} from {message.from_user.first_name} {message.from_user.username}: {message.text}")
-    if message.chat.id != group_id:
-        await message.reply("Хорошая попытка, но я сделана только для паблика @stalinfollower")
 
     if is_spam(message):
         await message.delete()
