@@ -127,6 +127,8 @@ async def work_send_meme_video(message: types.Message):
 @router.message(F.content_type.in_({'photo'}), F.chat.type.in_({'group', 'supergroup'}))
 async def comment_on_photo(message: types.Message):
     msg_group_id = message.media_group_id  #
+    if message.chat.id != group_id:
+        await message.reply("Хорошая попытка, но я сделана только для паблика @stalinfollower")
 
     if msg_group_id:
         if msg_group_id not in media_groups:
@@ -193,6 +195,8 @@ async def comment_on_photo(message: types.Message):
 async def process_ask_chat(message: types.Message) -> None:
     logger.info("%s", message)
     text = html.escape(message.text)
+    if message.chat.id != group_id:
+        await message.reply("Хорошая попытка, но я сделана только для паблика @stalinfollower")
 
     try:
         replay_text = await openai.get_resp(text, message.chat.id)
@@ -207,6 +211,9 @@ async def process_ask_chat(message: types.Message) -> None:
 
 @router.message(F.chat.type.in_({'group', 'supergroup'}))
 async def handle_group_messages(message: types.Message):
+    if message.chat.id != group_id:
+        await message.reply("Хорошая попытка, но я сделана только для паблика @stalinfollower")
+
     if is_spam(message):
         await message.delete()
         try:
