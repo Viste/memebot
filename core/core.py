@@ -127,8 +127,7 @@ async def work_send_meme_video(message: types.Message):
 @router.message(F.content_type.in_({'photo'}), F.chat.type.in_({'group', 'supergroup'}))
 async def comment_on_photo(message: types.Message):
     msg_group_id = message.media_group_id
-    logging.info('info about message %s', message)
-    if message.chat.id != "-1001564920057":
+    if not message.forward_from_chat or message.forward_from_chat.id != channel:
         await message.reply("Хорошая попытка, но я сделан только для паблика @stalinfollower")
         return
 
@@ -163,8 +162,6 @@ async def comment_on_photo(message: types.Message):
 
 # @router.message(F.content_type.in_({'video'}), F.chat.type.in_({'group', 'supergroup'}))
 # async def comment_on_video(message: types.Message):
-#    if message.forward_from_chat != channel:
-#        await message.reply("Хорошая попытка, но я сделан только для паблика @stalinfollower")
 #    logging.info(
 #        f"Received video from channel {message.forward_from_chat.title if message.forward_from_chat else 'unknown'} in chat {message.chat.id}")
 
@@ -199,7 +196,7 @@ async def comment_on_photo(message: types.Message):
 async def process_ask_chat(message: types.Message) -> None:
     logger.info("%s", message)
     text = html.escape(message.text)
-    if message.chat.id != group_id:
+    if message.chat.id != "-1001564920057":
         await message.reply("Хорошая попытка, но я сделан только для паблика @stalinfollower")
         return
 
