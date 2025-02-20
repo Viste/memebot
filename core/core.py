@@ -128,10 +128,11 @@ async def work_send_meme_video(message: types.Message):
 async def comment_on_photo(message: types.Message):
     msg_group_id = message.media_group_id
     logging.info('info about message %s', message)
-    if not message.forward_from_chat or message.forward_from_chat.id != channel:
+    if message.chat.title not in 'Подписчик Сталина Chat':
         await message.reply("Хорошая попытка, но я сделан только для паблика @stalinfollower")
         return
-    elif msg_group_id:
+
+    if msg_group_id:
         if msg_group_id not in media_groups:
             media_groups[msg_group_id] = []
 
@@ -196,7 +197,7 @@ async def comment_on_photo(message: types.Message):
 async def process_ask_chat(message: types.Message) -> None:
     logger.info("%s", message)
     text = html.escape(message.text)
-    if message.chat.id != "-1001564920057":
+    if message.chat.title not in 'Подписчик Сталина Chat':
         await message.reply("Хорошая попытка, но я сделан только для паблика @stalinfollower")
         return
 
@@ -217,10 +218,7 @@ async def handle_group_messages(message: types.Message):
     logging.info(
         f"Received message in chatid {message.chat.id}, chat name: {message.chat.title} from {message.from_user.first_name} {message.from_user.username}: {message.text}")
 
-    if message.photo or message.video or message.forward_from_chat:
-        return
-
-    if message.chat.id != "-1001564920057":
+    if message.chat.title not in 'Подписчик Сталина Chat':
         await message.reply("Хорошая попытка, но я сделана только для паблика @stalinfollower")
         return
 
