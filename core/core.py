@@ -216,10 +216,15 @@ async def handle_group_messages(message: types.Message):
     logger.info("%s", message)
     logging.info(
         f"Received message in chatid {message.chat.id}, chat name: {message.chat.title} from {message.from_user.first_name} {message.from_user.username}: {message.text}")
+
+    if message.photo or message.video or message.forward_from_chat:
+        return
+
     if message.chat.id != "-1001564920057":
         await message.reply("Хорошая попытка, но я сделана только для паблика @stalinfollower")
         return
-    elif is_spam(message):
+
+    if is_spam(message):
         await message.delete()
         try:
             await memes.ban_chat_member(chat_id=group_id, user_id=message.from_user.id)
