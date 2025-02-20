@@ -129,6 +129,7 @@ async def comment_on_photo(message: types.Message):
     msg_group_id = message.media_group_id  #
     if message.forward_from_chat != channel:
         await message.reply("Хорошая попытка, но я сделан только для паблика @stalinfollower")
+        return
 
     if msg_group_id:
         if msg_group_id not in media_groups:
@@ -199,6 +200,7 @@ async def process_ask_chat(message: types.Message) -> None:
     text = html.escape(message.text)
     if message.chat.id != group_id:
         await message.reply("Хорошая попытка, но я сделан только для паблика @stalinfollower")
+        return
 
     try:
         replay_text = await openai.get_resp(text, message.chat.id)
@@ -216,6 +218,9 @@ async def handle_group_messages(message: types.Message):
     logger.info("%s", message)
     logging.info(
         f"Received message in chatid {message.chat.id}, chat name: {message.chat.title} from {message.from_user.first_name} {message.from_user.username}: {message.text}")
+    if message.chat.id != group_id:
+        await message.reply("Хорошая попытка, но я сделана только для паблика @stalinfollower")
+        return
 
     if is_spam(message):
         await message.delete()
