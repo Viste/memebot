@@ -126,8 +126,9 @@ async def work_send_meme_video(message: types.Message):
 
 @router.message(F.content_type.in_({'photo'}), F.chat.type.in_({'group', 'supergroup'}))
 async def comment_on_photo(message: types.Message):
-    msg_group_id = message.media_group_id  #
-    if message.forward_from_chat != channel:
+    msg_group_id = message.media_group_id
+    logging.info('info about message %s', message)
+    if message.chat.id != "-1001564920057":
         await message.reply("Хорошая попытка, но я сделан только для паблика @stalinfollower")
         return
 
@@ -218,7 +219,7 @@ async def handle_group_messages(message: types.Message):
     logger.info("%s", message)
     logging.info(
         f"Received message in chatid {message.chat.id}, chat name: {message.chat.title} from {message.from_user.first_name} {message.from_user.username}: {message.text}")
-    if message.chat.id != group_id:
+    if message.chat.id != "-1001564920057":
         await message.reply("Хорошая попытка, но я сделана только для паблика @stalinfollower")
         return
 
