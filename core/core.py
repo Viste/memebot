@@ -211,6 +211,8 @@ async def process_ask_chat(message: types.Message) -> None:
 
 @router.message(F.chat.type.in_({'group', 'supergroup'}))
 async def handle_group_messages(message: types.Message):
+    logging.info(
+        f"Received message in chatid {message.chat.id}, chat name: {message.chat.title} from {message.from_user.first_name} {message.from_user.username}: {message.text}")
     if message.chat.id != group_id:
         await message.reply("Хорошая попытка, но я сделана только для паблика @stalinfollower")
 
@@ -222,6 +224,3 @@ async def handle_group_messages(message: types.Message):
             await message.answer(f"Пользователь {message.from_user.first_name} был заблокирован за спам.")
         except Exception as e:
             logger.error(f"Error banning user {message.from_user.id}: {e}")
-    else:
-        logging.info(
-            f"Received message from {message.from_user.first_name} {message.from_user.username}: {message.text}")
