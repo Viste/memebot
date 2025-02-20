@@ -127,11 +127,11 @@ async def work_send_meme_video(message: types.Message):
 @router.message(F.content_type.in_({'photo'}), F.chat.type.in_({'group', 'supergroup'}))
 async def comment_on_photo(message: types.Message):
     msg_group_id = message.media_group_id
+    logging.info('info about message %s', message)
     if not message.forward_from_chat or message.forward_from_chat.id != channel:
         await message.reply("Хорошая попытка, но я сделан только для паблика @stalinfollower")
         return
-
-    if msg_group_id:
+    elif msg_group_id:
         if msg_group_id not in media_groups:
             media_groups[msg_group_id] = []
 
@@ -219,8 +219,7 @@ async def handle_group_messages(message: types.Message):
     if message.chat.id != "-1001564920057":
         await message.reply("Хорошая попытка, но я сделана только для паблика @stalinfollower")
         return
-
-    if is_spam(message):
+    elif is_spam(message):
         await message.delete()
         try:
             await memes.ban_chat_member(chat_id=group_id, user_id=message.from_user.id)
