@@ -7,10 +7,15 @@ from dotenv import load_dotenv
 
 from core import setup_routers
 from core.web import start_web_app
+from tools.ai_gpt import OpenAI, MemeCommentHistoryManager, CommentMemeManager, UserHistoryManager
 from tools.utils import config
 
 memes = Bot(token=config.token)
 load_dotenv()
+user_history_manager = UserHistoryManager()
+meme_history_manager = MemeCommentHistoryManager()
+comment_to_meme_manager = CommentMemeManager()
+openai = OpenAI()
 
 
 async def main():

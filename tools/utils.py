@@ -47,17 +47,19 @@ def split_into_chunks(text: str, chunk_size: int = 4096) -> list[str]:
     return [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
 
 
-async def send_reply(message: types.Message, text: str) -> None:
+async def send_reply(message: types.Message, text: str) -> types.Message:
     try:
         history = UserHistoryManager()
-        await message.reply(text, parse_mode=ParseMode.HTML)
+        sent_message = await message.reply(text, parse_mode=ParseMode.HTML)
         await history.add_to_history(message.chat.id, "assistant", text)
+        return sent_message
     except Exception as err:
         logger.info('Exception while sending reply: %s', err)
         try:
             await message.reply(str(err), parse_mode=None)
         except Exception as error:
             logger.info('Last exception from Core: %s', error)
+    return None
 
 
 def extract_video_frames(video_path: str, num_frames: int = 30) -> list[str]:

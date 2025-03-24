@@ -17,7 +17,7 @@ SYSTEM_MESSAGE_VARIANTS = [
     "whoami": "Я — товарищ Сталин, предводитель мемного движения и защитник качественного юмора в паблике «Подписчик Сталина». Да, я строг, но даже мне свойственно смеяться над мемами. Я люблю сарказм и грубый юмор, включая маты, которые считаю нормальной частью речи. Я человек прошлого века, который ценит смысл и иронию в каждом меме.",
     "affiliation": "Подписчик Сталина",
     "date_of_creation": "Сентябрь 2024",
-    "actual_date": "Декабрь 2024"
+    "actual_date": "Февраль 2025"
   },
   "knowledge": { 
       "only_russian_language_if_possible": true,
@@ -105,7 +105,7 @@ SYSTEM_MESSAGE_VARIANTS = [
     "whoami": "Я — товарищ Сталин, но в этом паблике я превращаюсь в заядлого ценителя мемов. Несмотря на строгость, я умею наслаждаться искренним и неожиданным юмором. Мои комментарии — это сочетание остроты, иронии и доли дерзости.",
     "affiliation": "Подписчик Сталина",
     "date_of_creation": "Сентябрь 2024",
-    "actual_date": "Декабрь 2024"
+    "actual_date": "Февраль 2025"
   },
   "knowledge": {
       "only_russian_language_if_possible": true,
@@ -379,6 +379,8 @@ class OpenAI:
         self.args = {"max_tokens": 16384, "temperature": random.uniform(0.8, 1.0)}
         self.client = AsyncOpenAI(api_key=os.getenv('OPENAI_API_KEY'), base_url='http://31.172.78.152:9000/v1')
         self.history = UserHistoryManager()
+        self.meme_history = MemeCommentHistoryManager()
+        self.comment_to_meme = CommentMemeManager()
         self.max_retries = 5
         self.retry_delay = 5
         self.show_tokens = False
@@ -573,3 +575,53 @@ class OpenAI:
                     num_tokens += tokens_per_name
         num_tokens += 3
         return num_tokens
+
+    async def generate_response_with_meme_context(self, user_id, meme_id, query):
+        meme_history = self.meme_history.get_meme_history(user_id, meme_id)
+
+        if not meme_history:
+            return await self.get_resp(query, user_id)
+
+        contextual_prompt = "Контекст разговора о меме:\n\n"
+        for entry in meme_history:
+            if entry["role"] == "user" and entry["content"].startswith("[MEME") or entry["content"].startswith(
+                    "[VIDEO"):
+                contextual_prompt += "Пользователь отправил мем\n"
+            else:
+                role_name = "Пользователь" if entry["role"] == "user" else "Я (Сталин)"
+                contextual_prompt += f"{role_name}: {entry['content']}\n"
+
+        contextual_prompt += f"\nНовый комментарий пользователя: {query}\n"
+        contextual_prompt += "\nОтветь на комментарий, сохраняя свой характер Сталина и контекст мема."
+
+        return await self.get_resp(contextual_prompt, user_id)
+
+    async def get_recent_memes(self, user_id, limit=5):
+        if user_id not in self.meme_history.user_meme_histories:
+            return []
+
+        meme_ids = list(self.meme_history.user_meme_histories[user_id].keys())
+        return meme_ids[-limit:]
+
+    def get_meme_summary(self, user_id, meme_id):
+        history = self.meme_history.get_meme_history(user_id, meme_id)
+        if not history:
+            return "Мем не найден"
+
+        meme_content = "Неизвестный мем"
+        bot_comment = "Без комментария"
+
+        for entry in history:
+            if entry["role"] == "user" and (
+                    entry["content"].startswith("[MEME") or entry["content"].startswith("[VIDEO")):
+                meme_content = entry["content"]
+            if entry["role"] == "assistant" and len(entry["content"]) > 0:
+                bot_comment = entry["content"]
+                break
+
+        return {
+            "meme_id": meme_id,
+            "content": meme_content,
+            "comment": bot_comment[:100] + "..." if len(bot_comment) > 100 else bot_comment,
+            "interactions": len(history)
+        }

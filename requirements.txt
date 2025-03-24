@@ -7,3 +7,4 @@ jwt
 openai
 tiktoken
 opencv-python
+sqlalchemy

@@ -27,17 +27,40 @@ async def group_comment_delay(group_id_local):
         return
 
     image_urls = []
+    meme_ids = []
     for message in messages:
         try:
             file_info = await message.bot.get_file(message.photo[-1].file_id)
             image_url = f"https://api.telegram.org/file/bot{config.token}/{file_info.file_path}"
             image_urls.append(image_url)
+            meme_ids.append(message.photo[-1].file_id)
         except Exception as e:
             logger.error(f"Error getting file info for message: {e}")
 
     if image_urls:
         comment = await openai.generate_comment_from_images(image_urls, messages[0].chat.id)
-        await messages[0].reply(comment)
+
+        chat_id = messages[0].chat.id
+        group_meme_id = f"group_{group_id_local}"
+
+        image_content = "[MEME_GROUP: " + ", ".join(image_urls) + "]"
+        openai.meme_history.add_meme_interaction(
+            user_id=chat_id,
+            meme_id=group_meme_id,
+            role="user",
+            content=image_content
+        )
+
+        openai.meme_history.add_meme_interaction(
+            user_id=chat_id,
+            meme_id=group_meme_id,
+            role="assistant",
+            content=comment
+        )
+
+        sent_message = await messages[0].reply(comment)
+
+        openai.comment_to_meme.add_comment(sent_message.message_id, group_meme_id)
     else:
         logger.warning(f"No valid image URLs found for group ID {group_id_local}")
 
@@ -151,7 +174,28 @@ async def comment_on_photo(message: types.Message):
 
             try:
                 comment = await openai.generate_comment_from_image(image_url, message.chat.id)
-                await message.reply(comment)
+
+                meme_id = message.photo[-1].file_id
+                user_id = message.from_user.id
+
+                openai.meme_history.add_meme_interaction(
+                    user_id=message.chat.id,
+                    meme_id=meme_id,
+                    role="user",
+                    content=f"[MEME_IMAGE: {image_url}]"
+                )
+
+                openai.meme_history.add_meme_interaction(
+                    user_id=message.chat.id,
+                    meme_id=meme_id,
+                    role="assistant",
+                    content=comment
+                )
+
+                sent_message = await message.reply(comment)
+
+                openai.comment_to_meme.add_comment(sent_message.message_id, meme_id)
+
                 logger.info(f"Received comment from OpenAI: {comment}")
             except Exception as e:
                 logger.error(f"Error generating comment for single photo: {e}")
@@ -202,15 +246,95 @@ async def process_ask_chat(message: types.Message) -> None:
         return
 
     try:
-        replay_text = await openai.get_resp(text, message.chat.id)
-        chunks = split_into_chunks(replay_text)
-        for index, chunk in enumerate(chunks):
-            if index == 0:
-                await send_reply(message, chunk)
+        reply_to_msg_id = message.reply_to_message.message_id
+        meme_id = openai.comment_to_meme.get_meme_id(reply_to_msg_id)
+
+        if meme_id:
+            meme_history = openai.meme_history.get_meme_history(message.chat.id, meme_id)
+
+            openai.meme_history.add_meme_interaction(
+                user_id=message.chat.id,
+                meme_id=meme_id,
+                role="user",
+                content=text
+            )
+
+            contextual_prompt = "Вот информация о меме и предыдущие комментарии к нему:\n\n"
+            for entry in meme_history:
+                if entry["role"] == "user" and entry["content"].startswith("[MEME"):
+                    contextual_prompt += "Пользователь отправил мем\n"
+                else:
+                    role_name = "Пользователь" if entry["role"] == "user" else "Я (Сталин)"
+                    contextual_prompt += f"{role_name}: {entry['content']}\n"
+
+            contextual_prompt += f"\nПользователь сейчас спрашивает: {text}\n"
+            contextual_prompt += "Ответь на комментарий пользователя, сохраняя свой характер Сталина и помня контекст мема."
+
+            replay_text = await openai.get_resp(contextual_prompt, message.chat.id)
+
+            openai.meme_history.add_meme_interaction(
+                user_id=message.chat.id,
+                meme_id=meme_id,
+                role="assistant",
+                content=replay_text
+            )
+
+            chunks = split_into_chunks(replay_text)
+            for index, chunk in enumerate(chunks):
+                if index == 0:
+                    sent_message = await send_reply(message, chunk)
+                    if sent_message:
+                        openai.comment_to_meme.add_comment(sent_message.message_id, meme_id)
+        else:
+            replay_text = await openai.get_resp(text, message.chat.id)
+            chunks = split_into_chunks(replay_text)
+            for index, chunk in enumerate(chunks):
+                if index == 0:
+                    await send_reply(message, chunk)
+
     except Exception as e:
         logger.error(f"Error processing chat response: {e}")
         await message.reply("Не удалось обработать ваш запрос. Попробуйте позже.")
 
+
+@router.message(Command(commands="memes", ignore_case=True), F.chat.type.in_({'group', 'supergroup'}))
+async def list_recent_memes(message: types.Message):
+    if message.chat.title not in 'Подписчик Сталина Chat':
+        await message.reply("Хорошая попытка, но я сделан только для паблика @stalinfollower")
+        return
+
+    recent_memes = await openai.get_recent_memes(message.chat.id)
+
+    if not recent_memes:
+        await message.reply("В этом чате ещё нет мемов, которые я помню.")
+        return
+
+    response = "Последние мемы в этом чате:\n\n"
+    for i, meme_id in enumerate(recent_memes, 1):
+        summary = openai.get_meme_summary(message.chat.id, meme_id)
+        response += f"{i}. {summary['comment']}\n"
+
+    response += "\nОтвечайте на мои комментарии к мемам, и я буду помнить их контекст!"
+
+    await message.reply(response)
+
+
+@router.message(Command(commands="forget", ignore_case=True), F.chat.type.in_({'group', 'supergroup'}))
+async def forget_meme_history(message: types.Message):
+    if message.chat.title not in 'Подписчик Сталина Chat':
+        await message.reply("Хорошая попытка, но я сделан только для паблика @stalinfollower")
+        return
+
+    chat_member = await memes.get_chat_member(message.chat.id, message.from_user.id)
+    if chat_member.status not in ["administrator", "creator"]:
+        await message.reply("Только администраторы могут использовать эту команду.")
+        return
+
+    if message.chat.id in openai.meme_history.user_meme_histories:
+        openai.meme_history.user_meme_histories[message.chat.id] = {}
+        await message.reply("История мемов в этом чате очищена.")
+    else:
+        await message.reply("В этом чате нет сохранённой истории мемов.")
 
 @router.message(F.chat.type.in_({'group', 'supergroup'}))
 async def handle_group_messages(message: types.Message):
