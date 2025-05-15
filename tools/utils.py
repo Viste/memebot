@@ -2,7 +2,6 @@ import base64
 import json
 import logging
 import os
-import re
 
 import cv2
 from aiogram import types
@@ -31,16 +30,9 @@ def load_config():
 
 config = load_config()
 
-SPAM_LINKS_REGEX = re.compile(
-    r"\b(?:opensea|binance|waxu|foxu|xyz|hewuf|nft|collection|dropped|sold out|act fast|try to get)\b.*(?:https?:\/\/\S+)?",
-    re.IGNORECASE)
 group_id = "-1001564920057"
 media_groups = {}
 media_group_timers = {}
-
-
-def is_spam(message: types.Message):
-    return bool(message.text and SPAM_LINKS_REGEX.search(message.text))
 
 
 def split_into_chunks(text: str, chunk_size: int = 4096) -> list[str]:

@@ -8,7 +8,6 @@ from aiogram.filters.command import Command
 from main import memes
 from tools.ai_gpt import OpenAI
 from tools.utils import config
-from tools.utils import is_spam, group_id
 from tools.utils import media_groups, media_group_timers
 from tools.utils import send_reply, split_into_chunks
 
@@ -345,12 +344,3 @@ async def handle_group_messages(message: types.Message):
     if message.chat.title not in 'Подписчик Сталина Chat':
         await message.reply("Хорошая попытка, но я сделана только для паблика @stalinfollower")
         return
-
-    if is_spam(message):
-        await message.delete()
-        try:
-            await memes.ban_chat_member(chat_id=group_id, user_id=message.from_user.id)
-            logging.info(f"User {message.from_user.id} banned for spamming")
-            await message.answer(f"Пользователь {message.from_user.first_name} был заблокирован за спам.")
-        except Exception as e:
-            logger.error(f"Error banning user {message.from_user.id}: {e}")
