@@ -3,6 +3,7 @@ package database
 import (
 	"log"
 	"memebot/models"
+	"time"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -15,13 +16,24 @@ func Connect(databaseURL string) error {
 	var err error
 
 	config := &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+		Logger:      logger.Default.LogMode(logger.Info),
+		PrepareStmt: false,
+		QueryFields: true,
 	}
 
 	DB, err = gorm.Open(postgres.Open(databaseURL), config)
 	if err != nil {
 		return err
 	}
+
+	sqlDB, err := DB.DB()
+	if err != nil {
+		return err
+	}
+
+	sqlDB.SetMaxOpenConns(25)
+	sqlDB.SetMaxIdleConns(5)
+	sqlDB.SetConnMaxLifetime(5 * time.Minute)
 
 	log.Println("Connected to PostgreSQL database")
 	return nil

@@ -59,10 +59,12 @@ func (h *BotHandlers) handleCommand(message *tgbotapi.Message) {
 	switch command {
 	case "start":
 		h.handleStartCommand(message)
-	case "memes":
+	case "memes", "meme":
 		h.handleMemesCommand(message)
 	case "forget":
 		h.handleForgetCommand(message)
+	case "help":
+		h.handleHelpCommand(message)
 	default:
 		log.Printf("Unknown command: %s", command)
 	}
@@ -164,6 +166,25 @@ func (h *BotHandlers) handleForgetCommand(message *tgbotapi.Message) {
 	utils.SendReply(h.bot, message, "История мемов в этом чате очищена.")
 }
 
+func (h *BotHandlers) handleHelpCommand(message *tgbotapi.Message) {
+	helpText := `🤖 Команды бота:
+
+**Для личных сообщений:**
+/start - Приветствие и инструкции
+📷 Отправь фото - Переслать мем в канал
+🎥 Отправь видео - Переслать мем в канал
+
+**Для групп:**
+/memes - Показать последние мемы в чате
+/forget - Очистить историю мемов (только админы)
+📷 Отправь фото - Получить комментарий от Сталина
+💬 Ответь на комментарий бота - Продолжить диалог
+
+Отправляй мемы и получай саркастичные комментарии от товарища Сталина! 😄`
+
+	utils.SendReply(h.bot, message, helpText)
+}
+
 func (h *BotHandlers) handlePrivateMessage(message *tgbotapi.Message) {
 	if h.config.IsUserBanned(message.From.ID) {
 		msg := tgbotapi.NewMessage(message.Chat.ID, "не хочу с тобой разговаривать")
@@ -261,6 +282,7 @@ func (h *BotHandlers) handleGroupMessage(message *tgbotapi.Message) {
 		return
 	}
 
+	// Обрабатываем фото в группе
 	if len(message.Photo) > 0 {
 		h.handleGroupPhoto(message)
 		return
