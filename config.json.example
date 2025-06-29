@@ -1,0 +1,6 @@
+{
+  "token": "your_telegram_bot_token_here",
+  "channel": "@your_channel_here",
+  "banned_user_ids": [123456789, 987654321],
+  "admin_ids": [111111111, 222222222]
+}
