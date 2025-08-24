@@ -121,9 +121,7 @@ func GetImageURL(token, filePath string) string {
 func GetSenderName(message *tgbotapi.Message) (string, string) {
 	var firstName, lastName string
 
-	if message.From.UserName != "" {
-		firstName = message.From.UserName
-	} else if message.From.FirstName != "" && message.From.FirstName != "\xad" {
+	if message.From.FirstName != "" && message.From.FirstName != "\xad" {
 		firstName = message.From.FirstName
 	} else {
 		firstName = "Аноним"
