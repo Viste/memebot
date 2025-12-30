@@ -79,19 +79,19 @@ func (ts *TelegramSender) sendRequest(url string, payload map[string]interface{}
 	return nil
 }
 
-// SendToChannelSimple отправляет фото в канал (упрощенный метод)
+// SendToChannelSimple отправляет фото в канал
 func SendToChannelSimple(bot *tgbotapi.BotAPI, channelID string, photo tgbotapi.FileID, caption string) error {
 	sender := NewTelegramSender(bot)
 	return sender.sendPhoto(channelID, string(photo), caption)
 }
 
-// SendVideoToChannelSimple отправляет видео в канал (упрощенный метод)
+// SendVideoToChannelSimple отправляет видео в канал
 func SendVideoToChannelSimple(bot *tgbotapi.BotAPI, channelID string, video tgbotapi.FileID, caption string) error {
 	sender := NewTelegramSender(bot)
 	return sender.sendVideo(channelID, string(video), caption)
 }
 
-// SendMediaGroupToChannelSimple отправляет медиа группу в канал (упрощенный метод)
+// SendMediaGroupToChannelSimple отправляет медиа группу в канал
 func SendMediaGroupToChannelSimple(bot *tgbotapi.BotAPI, channelID string, media []interface{}) error {
 	sender := NewTelegramSender(bot)
 

@@ -7,6 +7,7 @@ import (
 	"memebot/config"
 	"memebot/services"
 	"memebot/utils"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,14 +17,16 @@ import (
 type BotHandlers struct {
 	bot           *tgbotapi.BotAPI
 	openaiService *services.OpenAIService
+	banService    *services.BanService
 	mediaManager  *utils.MediaGroupManager
 	config        *config.Config
 }
 
-func NewBotHandlers(bot *tgbotapi.BotAPI, openaiService *services.OpenAIService, cfg *config.Config) *BotHandlers {
+func NewBotHandlers(bot *tgbotapi.BotAPI, openaiService *services.OpenAIService, banService *services.BanService, cfg *config.Config) *BotHandlers {
 	return &BotHandlers{
 		bot:           bot,
 		openaiService: openaiService,
+		banService:    banService,
 		mediaManager:  utils.NewMediaGroupManager(),
 		config:        cfg,
 	}
@@ -65,6 +68,14 @@ func (h *BotHandlers) handleCommand(message *tgbotapi.Message) {
 		h.handleForgetCommand(message)
 	case "help":
 		h.handleHelpCommand(message)
+	case "migrate_bans":
+		h.handleMigrateBansCommand(message)
+	case "ban":
+		h.handleBanCommand(message)
+	case "unban":
+		h.handleUnbanCommand(message)
+	case "banlist":
+		h.handleBanlistCommand(message)
 	default:
 		log.Printf("Unknown command: %s", command)
 	}
@@ -169,24 +180,149 @@ func (h *BotHandlers) handleForgetCommand(message *tgbotapi.Message) {
 func (h *BotHandlers) handleHelpCommand(message *tgbotapi.Message) {
 	helpText := `🤖 Команды бота:
 
-**Для личных сообщений:**
+**В личных сообщениях:**
 /start - Приветствие и инструкции
-📷 Отправь фото - Переслать мем в канал
-🎥 Отправь видео - Переслать мем в канал
+📷 Принимаю картиночки(мемы)  - запощу мем в канале
+🎥 Принимаю видео(мемы) - запощу мем в канале
 
-**Для групп:**
+**В группе:**
 /memes - Показать последние мемы в чате
 /forget - Очистить историю мемов (только админы)
 📷 Отправь фото - Получить комментарий от Сталина
 💬 Ответь на комментарий бота - Продолжить диалог
+
+**Управление банами (только админы):**
+/migrate_bans - Перенести баны из конфига в БД
+/ban <user_id> <причина> - Забанить пользователя
+/unban <user_id> - Разбанить пользователя  
+/banlist - Показать список забаненных
 
 Отправляй мемы и получай саркастичные комментарии от товарища Сталина! 😄`
 
 	utils.SendReply(h.bot, message, helpText)
 }
 
+func (h *BotHandlers) handleMigrateBansCommand(message *tgbotapi.Message) {
+	if !h.config.IsUserAdmin(message.From.ID) {
+		utils.SendReply(h.bot, message, "Только администраторы могут использовать эту команду.")
+		return
+	}
+
+	err := h.banService.MigrateConfigBans(h.config.BannedUserIDs)
+	if err != nil {
+		log.Printf("Error migrating bans: %v", err)
+		utils.SendReply(h.bot, message, "Произошла ошибка при миграции банов.")
+		return
+	}
+
+	utils.SendReply(h.bot, message, fmt.Sprintf("Успешно мигрировано %d банов из конфига в базу данных.", len(h.config.BannedUserIDs)))
+}
+
+func (h *BotHandlers) handleBanCommand(message *tgbotapi.Message) {
+	if !h.config.IsUserAdmin(message.From.ID) {
+		utils.SendReply(h.bot, message, "Только администраторы могут использовать эту команду.")
+		return
+	}
+
+	args := strings.Fields(message.Text)
+	if len(args) < 3 {
+		utils.SendReply(h.bot, message, "Использование: /ban <user_id> <причина>")
+		return
+	}
+
+	userID, err := strconv.ParseInt(args[1], 10, 64)
+	if err != nil {
+		utils.SendReply(h.bot, message, "Неверный ID пользователя.")
+		return
+	}
+
+	reason := strings.Join(args[2:], " ")
+
+	err = h.banService.BanUser(userID, message.From.ID, reason)
+	if err != nil {
+		log.Printf("Error banning user %d: %v", userID, err)
+		utils.SendReply(h.bot, message, fmt.Sprintf("Ошибка при бане пользователя: %v", err))
+		return
+	}
+
+	utils.SendReply(h.bot, message, fmt.Sprintf("Пользователь %d забанен. Причина: %s", userID, reason))
+}
+
+func (h *BotHandlers) handleUnbanCommand(message *tgbotapi.Message) {
+	if !h.config.IsUserAdmin(message.From.ID) {
+		utils.SendReply(h.bot, message, "Только администраторы могут использовать эту команду.")
+		return
+	}
+
+	args := strings.Fields(message.Text)
+	if len(args) < 2 {
+		utils.SendReply(h.bot, message, "Использование: /unban <user_id>")
+		return
+	}
+
+	userID, err := strconv.ParseInt(args[1], 10, 64)
+	if err != nil {
+		utils.SendReply(h.bot, message, "Неверный ID пользователя.")
+		return
+	}
+
+	err = h.banService.UnbanUser(userID)
+	if err != nil {
+		log.Printf("Error unbanning user %d: %v", userID, err)
+		utils.SendReply(h.bot, message, fmt.Sprintf("Ошибка при разбане: %v", err))
+		return
+	}
+
+	utils.SendReply(h.bot, message, fmt.Sprintf("Пользователь %d разбанен.", userID))
+}
+
+func (h *BotHandlers) handleBanlistCommand(message *tgbotapi.Message) {
+	if !h.config.IsUserAdmin(message.From.ID) {
+		utils.SendReply(h.bot, message, "Только администраторы могут использовать эту команду.")
+		return
+	}
+
+	bans, err := h.banService.GetBannedUsers(20)
+	if err != nil {
+		log.Printf("Error getting banned users: %v", err)
+		utils.SendReply(h.bot, message, "Ошибка при получении списка банов.")
+		return
+	}
+
+	if len(bans) == 0 {
+		utils.SendReply(h.bot, message, "Список банов пуст.")
+		return
+	}
+
+	var response strings.Builder
+	response.WriteString("📛 Список забаненных пользователей:\n\n")
+
+	for i, ban := range bans {
+		name := "Неизвестный"
+		if ban.FirstName != nil {
+			name = *ban.FirstName
+			if ban.LastName != nil {
+				name += " " + *ban.LastName
+			}
+		}
+		if ban.Username != nil {
+			name += " (@" + *ban.Username + ")"
+		}
+
+		reason := "Не указана"
+		if ban.Reason != nil {
+			reason = *ban.Reason
+		}
+
+		response.WriteString(fmt.Sprintf("%d. ID: %d\n   Имя: %s\n   Причина: %s\n   Дата: %s\n\n",
+			i+1, ban.UserID, name, reason, ban.BannedAt.Format("02.01.2006 15:04")))
+	}
+
+	utils.SendReply(h.bot, message, response.String())
+}
+
 func (h *BotHandlers) handlePrivateMessage(message *tgbotapi.Message) {
-	if h.config.IsUserBanned(message.From.ID) {
+	if h.banService.IsUserBanned(message.From.ID) {
 		msg := tgbotapi.NewMessage(message.Chat.ID, "не хочу с тобой разговаривать")
 		msg.ReplyToMessageID = message.MessageID
 		h.bot.Send(msg)
@@ -358,7 +494,10 @@ func (h *BotHandlers) processCommentMediaGroup(groupID string) {
 		return
 	}
 
-	comment, err := h.openaiService.GenerateCommentFromImages(ctx, imageURLs, messages[0].Chat.ID)
+	// Берем caption из первого сообщения, если он есть
+	caption := messages[0].Caption
+
+	comment, err := h.openaiService.GenerateCommentFromImages(ctx, imageURLs, messages[0].Chat.ID, caption)
 	if err != nil {
 		log.Printf("Error generating comment for images: %v", err)
 		return
@@ -398,7 +537,10 @@ func (h *BotHandlers) handleSinglePhotoComment(ctx context.Context, message *tgb
 	imageURL := utils.GetImageURL(h.bot.Token, file.FilePath)
 	log.Printf("Image URL: %s", imageURL)
 
-	comment, err := h.openaiService.GenerateCommentFromImage(ctx, imageURL, message.Chat.ID)
+	// Учитываем подпись к фото, если она есть
+	caption := message.Caption
+
+	comment, err := h.openaiService.GenerateCommentFromImage(ctx, imageURL, message.Chat.ID, caption)
 	if err != nil {
 		log.Printf("Error generating comment for single photo: %v", err)
 		utils.SendReply(h.bot, message, "Не удалось обработать фотографию. Попробуйте еще раз.")

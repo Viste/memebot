@@ -48,7 +48,7 @@ meme-bot/
 ├── database/         # Подключение к БД и миграции
 ├── handlers/         # Обработчики Telegram событий
 ├── models/           # Модели базы данных (GORM)
-├── services/         # Бизнес-логика (OpenAI, etc.)
+├── services/         # OpenAI, etc.
 ├── utils/            # Утилиты и хелперы
 ├── web/              # Web сервер
 ├── main.go           # Точка входа

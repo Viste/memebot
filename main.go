@@ -41,7 +41,19 @@ func main() {
 		config.AppConfig.OpenAIBaseURL,
 	)
 
-	botHandlers := handlers.NewBotHandlers(bot, openaiService, config.AppConfig)
+	banService := services.NewBanService(bot)
+
+	if len(config.AppConfig.BannedUserIDs) > 0 {
+		log.Printf("Auto-migrating %d banned users from config to database", len(config.AppConfig.BannedUserIDs))
+		if err := banService.MigrateConfigBans(config.AppConfig.BannedUserIDs); err != nil {
+			log.Printf("Warning: Failed to auto-migrate bans: %v", err)
+		} else {
+			log.Printf("Auto-migration of bans completed successfully")
+		}
+	}
+
+	botHandlers := handlers.NewBotHandlers(bot, openaiService, banService, config.AppConfig)
+
 	webServer := web.NewServer(config.AppConfig.Port)
 
 	quit := make(chan os.Signal, 1)

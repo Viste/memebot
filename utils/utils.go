@@ -122,7 +122,7 @@ func GetSenderName(message *tgbotapi.Message) (string, string) {
 	var firstName, lastName string
 
 	if message.From.FirstName != "" && message.From.FirstName != "\xad" {
-		firstName = message.From.FirstName
+		firstName = message.From.UserName
 	} else {
 		firstName = "Аноним"
 	}
