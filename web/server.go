@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type Server struct {
@@ -44,13 +45,9 @@ func (s *Server) healthCheck(c *gin.Context) {
 }
 
 func (s *Server) metrics(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"status": "ok",
-		"metrics": gin.H{
-			"uptime": "running",
-			// todo: количество обработанных сообщений, ошибки, время отклика OpenAI и т.д.
-		},
-	})
+	// Используем стандартный Prometheus handler для экспорта метрик
+	handler := promhttp.Handler()
+	handler.ServeHTTP(c.Writer, c.Request)
 }
 
 func (s *Server) Start() error {

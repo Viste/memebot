@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"memebot/config"
+	"memebot/metrics"
 	"memebot/services"
 	"memebot/utils"
 	"strconv"
@@ -58,6 +59,9 @@ func (h *BotHandlers) HandleUpdate(update tgbotapi.Update) {
 
 func (h *BotHandlers) handleCommand(message *tgbotapi.Message) {
 	command := message.Command()
+
+	// Трекинг выполнения команды
+	metrics.TrackCommandExecuted(command)
 
 	switch command {
 	case "start":
@@ -245,6 +249,7 @@ func (h *BotHandlers) handleBanCommand(message *tgbotapi.Message) {
 		return
 	}
 
+	metrics.TrackUserBanned()
 	utils.SendReply(h.bot, message, fmt.Sprintf("Пользователь %d забанен. Причина: %s", userID, reason))
 }
 
@@ -273,6 +278,7 @@ func (h *BotHandlers) handleUnbanCommand(message *tgbotapi.Message) {
 		return
 	}
 
+	metrics.TrackUserUnbanned()
 	utils.SendReply(h.bot, message, fmt.Sprintf("Пользователь %d разбанен.", userID))
 }
 
@@ -341,6 +347,14 @@ func (h *BotHandlers) handlePrivateMessage(message *tgbotapi.Message) {
 }
 
 func (h *BotHandlers) handlePrivatePhoto(message *tgbotapi.Message) {
+	// Трекинг получения мема
+	hasCaption := message.Caption != ""
+	if message.MediaGroupID != "" {
+		metrics.TrackMemeReceived("media_group", hasCaption)
+	} else {
+		metrics.TrackMemeReceived("photo", hasCaption)
+	}
+
 	firstName, lastName := utils.GetSenderName(message)
 	caption := fmt.Sprintf("Мем прислал: %s %s", firstName, lastName)
 
@@ -359,16 +373,22 @@ func (h *BotHandlers) handlePrivatePhoto(message *tgbotapi.Message) {
 }
 
 func (h *BotHandlers) handlePrivateVideo(message *tgbotapi.Message) {
+	// Трекинг получения видео
+	hasCaption := message.Caption != ""
+	metrics.TrackMemeReceived("video", hasCaption)
+
 	firstName, lastName := utils.GetSenderName(message)
 	caption := fmt.Sprintf("Мем прислал: %s %s", firstName, lastName)
 
 	err := utils.SendVideoToChannel(h.bot, h.config.Channel, tgbotapi.FileID(message.Video.FileID), caption)
 	if err != nil {
 		log.Printf("Error sending video to channel: %v", err)
+		metrics.TrackChannelPostError("video_send_failed")
 		utils.SendReply(h.bot, message, "Произошла ошибка при отправке видео.")
 		return
 	}
 
+	metrics.TrackMemePosted("video")
 	utils.SendReply(h.bot, message, "Спасибо за мем! Пока-пока")
 }
 
@@ -394,10 +414,12 @@ func (h *BotHandlers) processMediaGroup(groupID string, originalMessage *tgbotap
 	err := utils.SendMediaGroupToChannel(h.bot, h.config.Channel, group.Media)
 	if err != nil {
 		log.Printf("Error sending media group to channel: %v", err)
+		metrics.TrackChannelPostError("media_group_send_failed")
 		utils.SendReply(h.bot, originalMessage, "Произошла ошибка при отправке медиа группы.")
 		return
 	}
 
+	metrics.TrackMemePosted("media_group")
 	utils.SendReply(h.bot, originalMessage, "Спасибо за мем! Приходи еще")
 }
 
@@ -405,10 +427,12 @@ func (h *BotHandlers) sendSinglePhoto(fileID, caption string, message *tgbotapi.
 	err := utils.SendToChannel(h.bot, h.config.Channel, tgbotapi.FileID(fileID), caption)
 	if err != nil {
 		log.Printf("Error sending photo to channel: %v", err)
+		metrics.TrackChannelPostError("photo_send_failed")
 		utils.SendReply(h.bot, message, "Произошла ошибка при отправке фото.")
 		return
 	}
 
+	metrics.TrackMemePosted("photo")
 	utils.SendReply(h.bot, message, "Спасибо за мем! Пока-пока")
 }
 
@@ -579,8 +603,10 @@ func (h *BotHandlers) handleReplyToBot(message *tgbotapi.Message) {
 	var response string
 
 	if memeID != "" {
+		metrics.TrackMemeInteraction()
 		response, err = h.openaiService.GetMemeContextualResponse(ctx, message.Chat.ID, memeID, message.Text)
 	} else {
+		metrics.TrackDialogInteraction()
 		response, err = h.openaiService.GetResponse(ctx, message.Text, message.Chat.ID)
 	}
 

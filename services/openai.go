@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/rand"
 	"memebot/database"
+	"memebot/metrics"
 	"memebot/models"
 	"strings"
 	"time"
@@ -232,6 +233,8 @@ func (s *OpenAIService) getRandomSystemPrompt() string {
 }
 
 func (s *OpenAIService) GenerateCommentFromImage(ctx context.Context, imageURL string, userID int64, caption string) (string, error) {
+	startTime := time.Now()
+
 	userPrompt := "Ну вот и дождались! Посмотрим, что тут за мем завезли. Если усмехнусь — это успех. Eсли вдруг захочу отправить тебя в Сибирь, трудовой лагерь, на Колыму, или урановые рудники не обижайся. Посмотрим, кто победит — твой юмор или моя строгость. Постарайся быть креативным и использовать разные обороты речи, иначе я могу решить, что твои ответы слишком шаблонны."
 
 	if caption != "" {
@@ -267,8 +270,24 @@ func (s *OpenAIService) GenerateCommentFromImage(ctx context.Context, imageURL s
 		Temperature: s.temperature,
 	})
 
+	duration := time.Since(startTime).Seconds()
+
 	if err != nil {
+		metrics.TrackCommentError("openai_api_error")
+		metrics.TrackOpenAIError("api_request_failed")
 		return "", fmt.Errorf("OpenAI API error: %w", err)
+	}
+
+	// Трекинг успешной генерации
+	metrics.TrackCommentGenerated(duration)
+	metrics.TrackOpenAIRequest(s.model, "comment_image", duration)
+
+	// Трекинг использованных токенов
+	if resp.Usage.PromptTokens > 0 {
+		metrics.TrackOpenAITokens(s.model, "prompt", resp.Usage.PromptTokens)
+	}
+	if resp.Usage.CompletionTokens > 0 {
+		metrics.TrackOpenAITokens(s.model, "completion", resp.Usage.CompletionTokens)
 	}
 
 	if len(resp.Choices) == 0 {
@@ -279,6 +298,8 @@ func (s *OpenAIService) GenerateCommentFromImage(ctx context.Context, imageURL s
 }
 
 func (s *OpenAIService) GenerateCommentFromImages(ctx context.Context, imageURLs []string, userID int64, caption string) (string, error) {
+	startTime := time.Now()
+
 	userPrompt := "Ну что, давайте посмотрим, что тут за группа мемов! Если я усмехнусь — это успех. Ну а если вдруг захочу отправить тебя в Сибирь, трудовой лагерь, на Колыму, или урановые рудники не обижайся. Посмотрим, кто победит — твой юмор или моя строгость. Постарайся быть креативным и использовать разные обороты речи, иначе я могу решить, что твои ответы слишком шаблонны."
 
 	if caption != "" {
@@ -319,8 +340,24 @@ func (s *OpenAIService) GenerateCommentFromImages(ctx context.Context, imageURLs
 		Temperature: s.temperature,
 	})
 
+	duration := time.Since(startTime).Seconds()
+
 	if err != nil {
+		metrics.TrackCommentError("openai_api_error")
+		metrics.TrackOpenAIError("api_request_failed")
 		return "", fmt.Errorf("OpenAI API error: %w", err)
+	}
+
+	// Трекинг успешной генерации
+	metrics.TrackCommentGenerated(duration)
+	metrics.TrackOpenAIRequest(s.model, "comment_images", duration)
+
+	// Трекинг использованных токенов
+	if resp.Usage.PromptTokens > 0 {
+		metrics.TrackOpenAITokens(s.model, "prompt", resp.Usage.PromptTokens)
+	}
+	if resp.Usage.CompletionTokens > 0 {
+		metrics.TrackOpenAITokens(s.model, "completion", resp.Usage.CompletionTokens)
 	}
 
 	if len(resp.Choices) == 0 {
