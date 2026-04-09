@@ -21,7 +21,7 @@ func Connect(databaseURL string) error {
 	if err != nil {
 		return err
 	}
-=
+
 	connConfig.DefaultQueryExecMode = pgx.QueryExecModeExec
 
 	sqlDB := stdlib.OpenDB(*connConfig)
@@ -33,11 +33,6 @@ func Connect(databaseURL string) error {
 	}
 
 	DB, err = gorm.Open(postgres.New(postgres.Config{Conn: sqlDB}), config)
-	if err != nil {
-		return err
-	}
-
-	sqlDB, err := DB.DB()
 	if err != nil {
 		return err
 	}
