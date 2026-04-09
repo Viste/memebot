@@ -91,6 +91,12 @@ func main() {
 func runBot(bot *tgbotapi.BotAPI, handlers *handlers.BotHandlers) {
 	updateConfig := tgbotapi.NewUpdate(0)
 	updateConfig.Timeout = 60
+	updateConfig.AllowedUpdates = []string{
+		"message",
+		"channel_post",
+		"edited_channel_post",
+		"callback_query",
+	}
 
 	updates := bot.GetUpdatesChan(updateConfig)
 
