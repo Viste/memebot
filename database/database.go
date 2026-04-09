@@ -5,6 +5,8 @@ import (
 	"memebot/models"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/stdlib"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -15,13 +17,22 @@ var DB *gorm.DB
 func Connect(databaseURL string) error {
 	var err error
 
+	connConfig, err := pgx.ParseConfig(databaseURL)
+	if err != nil {
+		return err
+	}
+=
+	connConfig.DefaultQueryExecMode = pgx.QueryExecModeExec
+
+	sqlDB := stdlib.OpenDB(*connConfig)
+
 	config := &gorm.Config{
 		Logger:      logger.Default.LogMode(logger.Info),
 		PrepareStmt: false,
 		QueryFields: true,
 	}
 
-	DB, err = gorm.Open(postgres.Open(databaseURL), config)
+	DB, err = gorm.Open(postgres.New(postgres.Config{Conn: sqlDB}), config)
 	if err != nil {
 		return err
 	}
