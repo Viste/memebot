@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -114,29 +115,13 @@ func SplitMessage(text string, maxLength int) []string {
 
 // GetImageURL формирует URL для получения изображения
 func GetImageURL(token, filePath string) string {
-	return fmt.Sprintf("https://api.telegram.org/file/bot%s/%s", token, filePath)
+	baseURL := os.Getenv("TELEGRAM_API_URL")
+	if baseURL == "" {
+		baseURL = "https://api.telegram.org"
+	}
+	return fmt.Sprintf("%s/file/bot%s/%s", baseURL, token, filePath)
 }
 
-// DownloadFileAsBase64 скачивает файл и возвращает data URL в base64
-func DownloadFileAsBase64(fileURL string) (string, error) {
-	resp, err := http.Get(fileURL)
-	if err != nil {
-		return "", fmt.Errorf("failed to download file: %w", err)
-	}
-	defer resp.Body.Close()
-
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read file: %w", err)
-	}
-
-	contentType := resp.Header.Get("Content-Type")
-	if contentType == "" {
-		contentType = "image/jpeg"
-	}
-
-	b64 := base64.StdEncoding.EncodeToString(data)
-	return fmt.Sprintf("data:%s;base64,%s", contentType, b64), nil
 }
 
 // GetSenderName извлекает имя отправителя из сообщения
