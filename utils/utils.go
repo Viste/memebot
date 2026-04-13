@@ -117,6 +117,28 @@ func GetImageURL(token, filePath string) string {
 	return fmt.Sprintf("https://api.telegram.org/file/bot%s/%s", token, filePath)
 }
 
+// DownloadFileAsBase64 скачивает файл и возвращает data URL в base64
+func DownloadFileAsBase64(fileURL string) (string, error) {
+	resp, err := http.Get(fileURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to download file: %w", err)
+	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read file: %w", err)
+	}
+
+	contentType := resp.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = "image/jpeg"
+	}
+
+	b64 := base64.StdEncoding.EncodeToString(data)
+	return fmt.Sprintf("data:%s;base64,%s", contentType, b64), nil
+}
+
 // GetSenderName извлекает имя отправителя из сообщения
 func GetSenderName(message *tgbotapi.Message) (string, string) {
 	var firstName, lastName string
