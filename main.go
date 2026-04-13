@@ -33,6 +33,10 @@ func main() {
 		log.Fatalf("Failed to create bot: %v", err)
 	}
 
+	if config.AppConfig.TelegramAPIURL != "" {
+		bot.SetAPIEndpoint(config.AppConfig.TelegramAPIURL + "/bot%s/%s")
+	}
+
 	bot.Debug = false
 	log.Printf("Bot authorized as %s", bot.Self.UserName)
 

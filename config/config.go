@@ -23,6 +23,9 @@ type Config struct {
 	OpenAIAPIKey  string
 	OpenAIBaseURL string
 
+	// Telegram API
+	TelegramAPIURL string
+
 	// Web server
 	Port string
 }
@@ -79,6 +82,8 @@ func Load() error {
 	if config.OpenAIBaseURL == "" {
 		config.OpenAIBaseURL = "http://31.172.78.152:9000/v1"
 	}
+
+	config.TelegramAPIURL = os.Getenv("TELEGRAM_API_URL")
 
 	config.Port = os.Getenv("PORT")
 	if config.Port == "" {
