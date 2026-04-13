@@ -122,8 +122,6 @@ func GetImageURL(token, filePath string) string {
 	return fmt.Sprintf("%s/file/bot%s/%s", baseURL, token, filePath)
 }
 
-}
-
 // GetSenderName извлекает имя отправителя из сообщения
 func GetSenderName(message *tgbotapi.Message) (string, string) {
 	var firstName, lastName string
