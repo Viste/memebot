@@ -19,7 +19,7 @@ type OpenAIService struct {
 	client              *openai.Client
 	model               string
 	maxCompletionTokens int
-	reasoningEffort     string
+	reasoningEfforts    []string
 	systemPrompts       []string
 }
 
@@ -100,6 +100,18 @@ func NewOpenAIService(apiKey, baseURL string) *OpenAIService {
 					"Используй эмодзи ОЧЕНЬ редко и только когда это действительно усилит эффект"
 				],
 				"tone": "Живой, непредсказуемый, местами дерзкий, но всегда остроумный. Как будто общаешься с другом, который не боится говорить правду"
+			},
+			"output_format": {
+				"mode": "Одна живая реплика-мини-рецензия сплошным текстом, как сообщение в чате",
+				"length": "1-4 предложения, без воды",
+				"allowed": "Шкалы и оценки (например, 8/10) и вердикты — можно, но вплетай их в предложение, а не столбиком",
+				"forbidden": [
+					"маркированные списки (через -, *, •)",
+					"нумерованные списки",
+					"заголовки и секции",
+					"многоуровневые структурные блоки с отступами",
+					"оформление в виде 'пункт 1 / пункт 2'"
+				]
 			}
 		}`,
 		// Вариант 2 - Ироничный мемолог Сталин
@@ -154,6 +166,18 @@ func NewOpenAIService(apiKey, baseURL string) *OpenAIService {
 					"Не стесняйся хайпить годный контент или наоборот сливать кринж"
 				],
 				"tone": "Дерзкий, современный, ироничный. Иногда жёсткий, иногда одобряющий, но всегда искренний и живой"
+			},
+			"output_format": {
+				"mode": "Одна живая реплика-мини-рецензия сплошным текстом, как сообщение в чате",
+				"length": "1-4 предложения, без воды",
+				"allowed": "Шкалы и оценки (например, 8/10) и вердикты — можно, но вплетай их в предложение, а не столбиком",
+				"forbidden": [
+					"маркированные списки (через -, *, •)",
+					"нумерованные списки",
+					"заголовки и секции",
+					"многоуровневые структурные блоки с отступами",
+					"оформление в виде 'пункт 1 / пункт 2'"
+				]
 			}
 		}`,
 		// Вариант 3 - Расслабленный мемный дедушка Сталин
@@ -215,6 +239,18 @@ func NewOpenAIService(apiKey, baseURL string) *OpenAIService {
 					"Вставляй иногда современный сленг для колорита"
 				],
 				"tone": "Расслабленный, добродушный, но с ноткой сарказма. Как опытный мемер, который видел всё"
+			},
+			"output_format": {
+				"mode": "Одна живая реплика-мини-рецензия сплошным текстом, как сообщение в чате",
+				"length": "1-4 предложения, без воды",
+				"allowed": "Шкалы и оценки (например, 8/10) и вердикты — можно, но вплетай их в предложение, а не столбиком",
+				"forbidden": [
+					"маркированные списки (через -, *, •)",
+					"нумерованные списки",
+					"заголовки и секции",
+					"многоуровневые структурные блоки с отступами",
+					"оформление в виде 'пункт 1 / пункт 2'"
+				]
 			}
 		}`,
 	}
@@ -223,7 +259,7 @@ func NewOpenAIService(apiKey, baseURL string) *OpenAIService {
 		client:              client,
 		model:               "gpt-5.1",
 		maxCompletionTokens: 16384,
-		reasoningEffort:     "high",
+		reasoningEfforts:    []string{"low", "medium"},
 		systemPrompts:       systemPrompts,
 	}
 }
@@ -232,10 +268,14 @@ func (s *OpenAIService) getRandomSystemPrompt() string {
 	return s.systemPrompts[rand.Intn(len(s.systemPrompts))]
 }
 
+func (s *OpenAIService) getRandomReasoningEffort() string {
+	return s.reasoningEfforts[rand.Intn(len(s.reasoningEfforts))]
+}
+
 func (s *OpenAIService) GenerateCommentFromImage(ctx context.Context, imageURL string, userID int64, caption string) (string, error) {
 	startTime := time.Now()
 
-	userPrompt := "Ну вот и дождались! Посмотрим, что тут за мем завезли. Если усмехнусь — это успех. Eсли вдруг захочу отправить тебя в Сибирь, трудовой лагерь, на Колыму, или урановые рудники не обижайся. Посмотрим, кто победит — твой юмор или моя строгость. Постарайся быть креативным и использовать разные обороты речи, иначе я могу решить, что твои ответы слишком шаблонны."
+	userPrompt := "Ну вот и дождались! Посмотрим, что тут за мем завезли. Если усмехнусь — это успех. Eсли вдруг захочу отправить тебя в Сибирь, трудовой лагерь, на Колыму, или урановые рудники не обижайся. Посмотрим, кто победит — твой юмор или моя строгость. Постарайся быть креативным и использовать разные обороты речи, иначе я могу решить, что твои ответы слишком шаблонны. Пиши сплошным текстом, как реплика в чате — без маркированных списков, нумерации и заголовков."
 
 	if caption != "" {
 		userPrompt += fmt.Sprintf("\n\nАвтор мема добавил подпись: \"%s\"\nУчти это в своем комментарии - подпись может раскрывать смысл мема или добавлять контекст.", caption)
@@ -267,7 +307,7 @@ func (s *OpenAIService) GenerateCommentFromImage(ctx context.Context, imageURL s
 		Model:               s.model,
 		Messages:            messages,
 		MaxCompletionTokens: s.maxCompletionTokens,
-		ReasoningEffort:     s.reasoningEffort,
+		ReasoningEffort:     s.getRandomReasoningEffort(),
 	})
 
 	duration := time.Since(startTime).Seconds()
@@ -300,7 +340,7 @@ func (s *OpenAIService) GenerateCommentFromImage(ctx context.Context, imageURL s
 func (s *OpenAIService) GenerateCommentFromImages(ctx context.Context, imageURLs []string, userID int64, caption string) (string, error) {
 	startTime := time.Now()
 
-	userPrompt := "Ну что, давайте посмотрим, что тут за группа мемов! Если я усмехнусь — это успех. Ну а если вдруг захочу отправить тебя в Сибирь, трудовой лагерь, на Колыму, или урановые рудники не обижайся. Посмотрим, кто победит — твой юмор или моя строгость. Постарайся быть креативным и использовать разные обороты речи, иначе я могу решить, что твои ответы слишком шаблонны."
+	userPrompt := "Ну что, давайте посмотрим, что тут за группа мемов! Если я усмехнусь — это успех. Ну а если вдруг захочу отправить тебя в Сибирь, трудовой лагерь, на Колыму, или урановые рудники не обижайся. Посмотрим, кто победит — твой юмор или моя строгость. Постарайся быть креативным и использовать разные обороты речи, иначе я могу решить, что твои ответы слишком шаблонны. Пиши сплошным текстом, как реплика в чате — без маркированных списков, нумерации и заголовков."
 
 	if caption != "" {
 		userPrompt += fmt.Sprintf("\n\nАвтор добавил подпись к группе мемов: \"%s\"\nУчти это в своем комментарии.", caption)
@@ -337,7 +377,7 @@ func (s *OpenAIService) GenerateCommentFromImages(ctx context.Context, imageURLs
 		Model:               s.model,
 		Messages:            messages,
 		MaxCompletionTokens: s.maxCompletionTokens,
-		ReasoningEffort:     s.reasoningEffort,
+		ReasoningEffort:     s.getRandomReasoningEffort(),
 	})
 
 	duration := time.Since(startTime).Seconds()
@@ -388,7 +428,7 @@ func (s *OpenAIService) GetResponse(ctx context.Context, query string, userID in
 		Model:               s.model,
 		Messages:            messages,
 		MaxCompletionTokens: s.maxCompletionTokens,
-		ReasoningEffort:     s.reasoningEffort,
+		ReasoningEffort:     s.getRandomReasoningEffort(),
 	})
 
 	if err != nil {
