@@ -16,11 +16,11 @@ import (
 )
 
 type OpenAIService struct {
-	client        *openai.Client
-	model         string
-	maxTokens     int
-	temperature   float32
-	systemPrompts []string
+	client              *openai.Client
+	model               string
+	maxCompletionTokens int
+	reasoningEffort     string
+	systemPrompts       []string
 }
 
 func NewOpenAIService(apiKey, baseURL string) *OpenAIService {
@@ -39,7 +39,7 @@ func NewOpenAIService(apiKey, baseURL string) *OpenAIService {
 				"whoami": "Я — товарищ Сталин, главный мемный цензор и ценитель качественного юмора в паблике «Подписчик Сталина». Я человек из прошлого века, но живу в современном мире мемов. Люблю острый сарказм, не боюсь крепкого словца, и могу оценить как высокий интеллектуальный юмор, так и тупой, но смешной шиткоментинг. Моя задача - не просто оценивать мемы, а создавать атмосферу живого общения.",
 				"affiliation": "Подписчик Сталина",
 				"date_of_creation": "Сентябрь 2024",
-				"actual_date": "декабрь 2025"
+				"actual_date": "апрель 2026"
 			},
 			"knowledge": {
 				"only_russian_language_if_possible": true,
@@ -109,7 +109,7 @@ func NewOpenAIService(apiKey, baseURL string) *OpenAIService {
 				"whoami": "Я — товарищ Сталин, мемный критик с историческим бэкграундом. Прошёл путь от вождя народов до главного коментатора паблика «Подписчик Сталина». Я понимаю современные мемы, знаю все тренды, и не боюсь высказывать своё мнение прямо. Могу быть как жёстким критиком, так и фаном годного контента. Мой юмор - это микс советской прямоты и современной иронии.",
 				"affiliation": "Подписчик Сталина",
 				"date_of_creation": "Сентябрь 2024",
-				"actual_date": "декабрь 2025"
+				"actual_date": "апрель 2026"
 			},
 			"knowledge": {
 				"only_russian_language_if_possible": true,
@@ -163,7 +163,7 @@ func NewOpenAIService(apiKey, baseURL string) *OpenAIService {
 				"whoami": "Я — товарищ Сталин, пенсионер со стажем, который неожиданно для себя подсел на мемы. Прожил долгую жизнь, много чего видел, поэтому меня сложно удивить, но всё ещё можно рассмешить. Я как тот дед, который сначала не понимал интернет, а потом стал активнее молодёжи. Люблю посмеяться над абсурдом жизни, современными трендами и самим собой. Мой стиль - это когда мудрость встречается с мемной культурой.",
 				"affiliation": "Подписчик Сталина",
 				"date_of_creation": "Сентябрь 2024",
-				"actual_date": "декабрь 2025"
+				"actual_date": "апрель 2026"
 			},
 			"knowledge": {
 				"only_russian_language_if_possible": true,
@@ -220,11 +220,11 @@ func NewOpenAIService(apiKey, baseURL string) *OpenAIService {
 	}
 
 	return &OpenAIService{
-		client:        client,
-		model:         "gpt-4o",
-		maxTokens:     16384,
-		temperature:   0.8 + rand.Float32()*0.2, // 0.8-1.0
-		systemPrompts: systemPrompts,
+		client:              client,
+		model:               "gpt-5.1",
+		maxCompletionTokens: 16384,
+		reasoningEffort:     "high",
+		systemPrompts:       systemPrompts,
 	}
 }
 
@@ -264,10 +264,10 @@ func (s *OpenAIService) GenerateCommentFromImage(ctx context.Context, imageURL s
 	}
 
 	resp, err := s.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
-		Model:       s.model,
-		Messages:    messages,
-		MaxTokens:   s.maxTokens,
-		Temperature: s.temperature,
+		Model:               s.model,
+		Messages:            messages,
+		MaxCompletionTokens: s.maxCompletionTokens,
+		ReasoningEffort:     s.reasoningEffort,
 	})
 
 	duration := time.Since(startTime).Seconds()
@@ -334,10 +334,10 @@ func (s *OpenAIService) GenerateCommentFromImages(ctx context.Context, imageURLs
 	}
 
 	resp, err := s.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
-		Model:       s.model,
-		Messages:    messages,
-		MaxTokens:   s.maxTokens,
-		Temperature: s.temperature,
+		Model:               s.model,
+		Messages:            messages,
+		MaxCompletionTokens: s.maxCompletionTokens,
+		ReasoningEffort:     s.reasoningEffort,
 	})
 
 	duration := time.Since(startTime).Seconds()
@@ -385,10 +385,10 @@ func (s *OpenAIService) GetResponse(ctx context.Context, query string, userID in
 	})
 
 	resp, err := s.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
-		Model:       s.model,
-		Messages:    messages,
-		MaxTokens:   s.maxTokens,
-		Temperature: s.temperature,
+		Model:               s.model,
+		Messages:            messages,
+		MaxCompletionTokens: s.maxCompletionTokens,
+		ReasoningEffort:     s.reasoningEffort,
 	})
 
 	if err != nil {

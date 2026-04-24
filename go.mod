@@ -10,7 +10,7 @@ require (
 	github.com/jackc/pgx/v5 v5.4.3
 	github.com/joho/godotenv v1.5.1
 	github.com/prometheus/client_golang v1.19.1
-	github.com/sashabaranov/go-openai v1.17.9
+	github.com/sashabaranov/go-openai v1.41.2
 	gorm.io/driver/postgres v1.5.4
 	gorm.io/gorm v1.25.5
 )
