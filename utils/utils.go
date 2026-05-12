@@ -146,14 +146,18 @@ func IsValidChat(chatTitle string) bool {
 	return strings.Contains(chatTitle, "Подписчик Сталина Chat")
 }
 
-// SendReply отправляет ответ на сообщение с обработкой ошибок
+// SendReply отправляет ответ на сообщение с обработкой ошибок.
 func SendReply(bot *tgbotapi.BotAPI, message *tgbotapi.Message, text string) (*tgbotapi.Message, error) {
-	chunks := SplitMessage(text, 4096)
+	htmlText := MarkdownToTelegramHTML(text)
+	plainText := StripMarkdown(text)
+
+	htmlChunks := SplitMessage(htmlText, 4096)
+	plainChunks := SplitMessage(plainText, 4096)
 
 	var lastMessage tgbotapi.Message
 	var err error
 
-	for i, chunk := range chunks {
+	for i, chunk := range htmlChunks {
 		msg := tgbotapi.NewMessage(message.Chat.ID, chunk)
 		if i == 0 {
 			msg.ReplyToMessageID = message.MessageID
@@ -162,6 +166,11 @@ func SendReply(bot *tgbotapi.BotAPI, message *tgbotapi.Message, text string) (*t
 
 		lastMessage, err = bot.Send(msg)
 		if err != nil {
+			fallback := chunk
+			if i < len(plainChunks) {
+				fallback = plainChunks[i]
+			}
+			msg.Text = fallback
 			msg.ParseMode = ""
 			lastMessage, err = bot.Send(msg)
 			if err != nil {

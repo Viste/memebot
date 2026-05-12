@@ -272,6 +272,139 @@ func (s *OpenAIService) getRandomReasoningEffort() string {
 	return s.reasoningEfforts[rand.Intn(len(s.reasoningEfforts))]
 }
 
+func humanizeAgo(d time.Duration) string {
+	switch {
+	case d < time.Minute:
+		return "только что"
+	case d < time.Hour:
+		return fmt.Sprintf("%d мин назад", int(d.Minutes()))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("%d ч назад", int(d.Hours()))
+	default:
+		return fmt.Sprintf("%d д назад", int(d.Hours()/24))
+	}
+}
+
+func truncateRunes(s string, n int) string {
+	s = strings.TrimSpace(s)
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return string(r[:n]) + "…"
+}
+
+func (s *OpenAIService) getRecentBotWisdom(limit int) []string {
+	var comments []models.MemeComment
+	err := database.DB.
+		Where("is_bot = ? AND created_at > ?", true, time.Now().Add(-7*24*time.Hour)).
+		Order("created_at DESC").
+		Limit(limit).
+		Find(&comments).Error
+	if err != nil {
+		log.Printf("getRecentBotWisdom error: %v", err)
+		return nil
+	}
+	out := make([]string, 0, len(comments))
+	for _, c := range comments {
+		if t := truncateRunes(c.Content, 220); t != "" {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+func (s *OpenAIService) getAuthorMemeContext(userID int64, limit int) []string {
+	type row struct {
+		CreatedAt  time.Time `gorm:"column:created_at"`
+		BotComment string    `gorm:"column:bot_comment"`
+	}
+	var rows []row
+	err := database.DB.Raw(`
+		SELECT m.created_at,
+		       COALESCE((SELECT mc.content FROM meme_comments mc
+		                 WHERE mc.meme_id = m.id AND mc.is_bot = true
+		                 ORDER BY mc.created_at ASC LIMIT 1), '') AS bot_comment
+		FROM memes m
+		WHERE m.user_id = ?
+		ORDER BY m.created_at DESC
+		LIMIT ?
+	`, userID, limit).Scan(&rows).Error
+	if err != nil {
+		log.Printf("getAuthorMemeContext error: %v", err)
+		return nil
+	}
+	out := make([]string, 0, len(rows))
+	for _, r := range rows {
+		if r.BotComment == "" {
+			continue
+		}
+		out = append(out, fmt.Sprintf("%s — «%s»", humanizeAgo(time.Since(r.CreatedAt)), truncateRunes(r.BotComment, 180)))
+	}
+	return out
+}
+
+func (s *OpenAIService) getUserStats(userID int64) string {
+	var stats struct {
+		Total int64      `gorm:"column:total"`
+		First *time.Time `gorm:"column:first_at"`
+		Last  *time.Time `gorm:"column:last_at"`
+	}
+	err := database.DB.Raw(`
+		SELECT COUNT(*) AS total, MIN(created_at) AS first_at, MAX(created_at) AS last_at
+		FROM memes
+		WHERE user_id = ?
+	`, userID).Scan(&stats).Error
+	if err != nil || stats.Total == 0 {
+		return ""
+	}
+	parts := []string{fmt.Sprintf("всего мемов: %d", stats.Total)}
+	if stats.Last != nil {
+		parts = append(parts, fmt.Sprintf("предыдущий — %s", humanizeAgo(time.Since(*stats.Last))))
+	}
+	if stats.First != nil && stats.Total > 1 {
+		parts = append(parts, fmt.Sprintf("в чате с %s", humanizeAgo(time.Since(*stats.First))))
+	}
+	return strings.Join(parts, ", ")
+}
+
+func (s *OpenAIService) buildLoreContext(userID int64) string {
+	stats := s.getUserStats(userID)
+	authorMemes := s.getAuthorMemeContext(userID, 5)
+	botWisdom := s.getRecentBotWisdom(15)
+
+	if stats == "" && len(authorMemes) == 0 && len(botWisdom) == 0 {
+		return ""
+	}
+
+	var b strings.Builder
+	b.WriteString("Контекст из чата (используй для живости и связности, но не пересказывай эту инфу в ответе явно):\n")
+
+	if stats != "" {
+		b.WriteString("\nЭтот автор: ")
+		b.WriteString(stats)
+		b.WriteString(".")
+	}
+
+	if len(authorMemes) > 0 {
+		b.WriteString("\n\nТвои прошлые комменты на мемы этого автора (можешь подкалывать стиль/частоту, но избегай дословных самоповторов):")
+		for _, m := range authorMemes {
+			b.WriteString("\n• ")
+			b.WriteString(m)
+		}
+	}
+
+	if len(botWisdom) > 0 {
+		b.WriteString("\n\nТвои свежие реплики в канале за неделю — НЕ повторяй их формулировки и обороты, ищи свежие:")
+		for _, w := range botWisdom {
+			b.WriteString("\n• ")
+			b.WriteString(w)
+		}
+	}
+
+	return b.String()
+}
+
 func (s *OpenAIService) GenerateCommentFromImage(ctx context.Context, imageURL string, userID int64, caption string) (string, error) {
 	startTime := time.Now()
 
@@ -286,22 +419,28 @@ func (s *OpenAIService) GenerateCommentFromImage(ctx context.Context, imageURL s
 			Role:    openai.ChatMessageRoleSystem,
 			Content: s.getRandomSystemPrompt(),
 		},
-		{
-			Role: openai.ChatMessageRoleUser,
-			MultiContent: []openai.ChatMessagePart{
-				{
-					Type: openai.ChatMessagePartTypeText,
-					Text: userPrompt,
-				},
-				{
-					Type: openai.ChatMessagePartTypeImageURL,
-					ImageURL: &openai.ChatMessageImageURL{
-						URL: imageURL,
-					},
+	}
+	if lore := s.buildLoreContext(userID); lore != "" {
+		messages = append(messages, openai.ChatCompletionMessage{
+			Role:    openai.ChatMessageRoleSystem,
+			Content: lore,
+		})
+	}
+	messages = append(messages, openai.ChatCompletionMessage{
+		Role: openai.ChatMessageRoleUser,
+		MultiContent: []openai.ChatMessagePart{
+			{
+				Type: openai.ChatMessagePartTypeText,
+				Text: userPrompt,
+			},
+			{
+				Type: openai.ChatMessagePartTypeImageURL,
+				ImageURL: &openai.ChatMessageImageURL{
+					URL: imageURL,
 				},
 			},
 		},
-	}
+	})
 
 	resp, err := s.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
 		Model:               s.model,
@@ -367,11 +506,17 @@ func (s *OpenAIService) GenerateCommentFromImages(ctx context.Context, imageURLs
 			Role:    openai.ChatMessageRoleSystem,
 			Content: s.getRandomSystemPrompt(),
 		},
-		{
-			Role:         openai.ChatMessageRoleUser,
-			MultiContent: parts,
-		},
 	}
+	if lore := s.buildLoreContext(userID); lore != "" {
+		messages = append(messages, openai.ChatCompletionMessage{
+			Role:    openai.ChatMessageRoleSystem,
+			Content: lore,
+		})
+	}
+	messages = append(messages, openai.ChatCompletionMessage{
+		Role:         openai.ChatMessageRoleUser,
+		MultiContent: parts,
+	})
 
 	resp, err := s.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
 		Model:               s.model,
@@ -419,6 +564,12 @@ func (s *OpenAIService) GetResponse(ctx context.Context, query string, userID in
 	}
 
 	messages := s.convertHistoryToMessages(history)
+	if lore := s.buildLoreContext(userID); lore != "" {
+		messages = append(messages, openai.ChatCompletionMessage{
+			Role:    openai.ChatMessageRoleSystem,
+			Content: lore,
+		})
+	}
 	messages = append(messages, openai.ChatCompletionMessage{
 		Role:    openai.ChatMessageRoleUser,
 		Content: query,
