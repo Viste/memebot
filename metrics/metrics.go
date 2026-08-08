@@ -99,6 +99,31 @@ var (
 		[]string{"model", "type"}, // type: prompt/completion
 	)
 
+	// Метрики генерации изображений
+	ImagesGenerated = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "memebot_images_generated_total",
+			Help: "Количество сгенерированных мемов-картинок",
+		},
+		[]string{"trigger"}, // trigger: request/random
+	)
+
+	ImageGenerationDuration = promauto.NewHistogram(
+		prometheus.HistogramOpts{
+			Name:    "memebot_image_generation_duration_seconds",
+			Help:    "Время генерации мема-картинки в секундах",
+			Buckets: []float64{5, 10, 20, 30, 60, 90, 120, 180},
+		},
+	)
+
+	ImageGenerationErrors = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "memebot_image_generation_errors_total",
+			Help: "Количество ошибок при генерации мемов-картинок",
+		},
+		[]string{"error_type"},
+	)
+
 	// Метрики банов
 	UsersBanned = promauto.NewCounter(
 		prometheus.CounterOpts{
@@ -252,6 +277,17 @@ func TrackOpenAIError(errorType string) {
 // TrackOpenAITokens отслеживает использование токенов
 func TrackOpenAITokens(model, tokenType string, count int) {
 	OpenAITokensUsed.WithLabelValues(model, tokenType).Add(float64(count))
+}
+
+// TrackImageGenerated отслеживает успешную генерацию мема-картинки
+func TrackImageGenerated(trigger string, duration float64) {
+	ImagesGenerated.WithLabelValues(trigger).Inc()
+	ImageGenerationDuration.Observe(duration)
+}
+
+// TrackImageError отслеживает ошибку генерации мема-картинки
+func TrackImageError(errorType string) {
+	ImageGenerationErrors.WithLabelValues(errorType).Inc()
 }
 
 // TrackUserBanned отслеживает бан пользователя

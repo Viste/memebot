@@ -12,7 +12,7 @@ import (
 	"sync"
 	"syscall"
 
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	tgbotapi "github.com/OvyFlash/telegram-bot-api"
 )
 
 func main() {
@@ -43,6 +43,8 @@ func main() {
 	openaiService := services.NewOpenAIService(
 		config.AppConfig.OpenAIAPIKey,
 		config.AppConfig.OpenAIBaseURL,
+		config.AppConfig.OpenAIModel,
+		config.AppConfig.ImageModel,
 	)
 
 	banService := services.NewBanService(bot)

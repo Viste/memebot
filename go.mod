@@ -1,16 +1,14 @@
 module memebot
 
-go 1.23.0
-
-toolchain go1.23.7
+go 1.26.0
 
 require (
+	github.com/OvyFlash/telegram-bot-api v0.0.0-20260715235732-aca8bf3898bb
 	github.com/gin-gonic/gin v1.9.1
-	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
 	github.com/jackc/pgx/v5 v5.4.3
 	github.com/joho/godotenv v1.5.1
 	github.com/prometheus/client_golang v1.19.1
-	github.com/sashabaranov/go-openai v1.41.2
+	github.com/sashabaranov/go-openai v1.42.0
 	gorm.io/driver/postgres v1.5.4
 	gorm.io/gorm v1.25.5
 )

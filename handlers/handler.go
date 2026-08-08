@@ -4,15 +4,17 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math/rand"
 	"memebot/config"
 	"memebot/metrics"
+	"memebot/models"
 	"memebot/services"
 	"memebot/utils"
 	"strconv"
 	"strings"
 	"time"
 
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	tgbotapi "github.com/OvyFlash/telegram-bot-api"
 )
 
 type BotHandlers struct {
@@ -98,7 +100,7 @@ func (h *BotHandlers) handleStartCommand(message *tgbotapi.Message) {
 	text := fmt.Sprintf("Привет %s, тут ты можешь отправить нам мемес. Принимаю только видосики и картинощки", firstName)
 
 	msg := tgbotapi.NewMessage(message.Chat.ID, text)
-	msg.ReplyToMessageID = message.MessageID
+	msg.ReplyParameters = tgbotapi.ReplyParameters{MessageID: message.MessageID}
 
 	_, err := h.bot.Send(msg)
 	if err != nil {
@@ -155,8 +157,8 @@ func (h *BotHandlers) handleForgetCommand(message *tgbotapi.Message) {
 
 	chatMember, err := h.bot.GetChatMember(tgbotapi.GetChatMemberConfig{
 		ChatConfigWithUser: tgbotapi.ChatConfigWithUser{
-			ChatID: message.Chat.ID,
-			UserID: message.From.ID,
+			ChatConfig: tgbotapi.ChatConfig{ChatID: message.Chat.ID},
+			UserID:     message.From.ID,
 		},
 	})
 
@@ -194,6 +196,7 @@ func (h *BotHandlers) handleHelpCommand(message *tgbotapi.Message) {
 /forget - Очистить историю мемов (только админы)
 📷 Отправь фото - Получить комментарий от Сталина
 💬 Ответь на комментарий бота - Продолжить диалог
+🎨 Ответь боту "а как бы ты сделал этот мем" - Сталин нарисует свою версию
 
 **Управление банами (только админы):**
 /migrate_bans - Перенести баны из конфига в БД
@@ -330,7 +333,7 @@ func (h *BotHandlers) handleBanlistCommand(message *tgbotapi.Message) {
 func (h *BotHandlers) handlePrivateMessage(message *tgbotapi.Message) {
 	if h.banService.IsUserBanned(message.From.ID) {
 		msg := tgbotapi.NewMessage(message.Chat.ID, "не хочу с тобой разговаривать")
-		msg.ReplyToMessageID = message.MessageID
+		msg.ReplyParameters = tgbotapi.ReplyParameters{MessageID: message.MessageID}
 		h.bot.Send(msg)
 		return
 	}
@@ -564,6 +567,13 @@ func (h *BotHandlers) handleSinglePhotoComment(ctx context.Context, message *tgb
 	// Учитываем подпись к фото, если она есть
 	caption := message.Caption
 
+	// Очень редко отвечаем на мем не текстом, а своим сгенерированным мемом
+	if h.config.MemeImageProbability > 0 && rand.Float64() < h.config.MemeImageProbability {
+		if h.tryRandomMemeReply(ctx, message, imageURL, caption) {
+			return
+		}
+	}
+
 	comment, err := h.openaiService.GenerateCommentFromImage(ctx, imageURL, message.Chat.ID, caption)
 	if err != nil {
 		log.Printf("Error generating comment for single photo: %v", err)
@@ -600,6 +610,11 @@ func (h *BotHandlers) handleReplyToBot(message *tgbotapi.Message) {
 		return
 	}
 
+	if memeID != "" && isMemeRemakeRequest(message.Text) {
+		h.handleMemeRemakeRequest(ctx, message, memeID)
+		return
+	}
+
 	var response string
 
 	if memeID != "" {
@@ -625,6 +640,135 @@ func (h *BotHandlers) handleReplyToBot(message *tgbotapi.Message) {
 	if memeID != "" && sentMessage != nil {
 		h.openaiService.AddCommentMapping(sentMessage.MessageID, memeID)
 	}
+}
+
+var memeRemakeMarkers = []string{
+	"как бы ты сделал",
+	"как ты бы сделал",
+	"как бы ты его сделал",
+	"нарисуй",
+	"сгенерируй",
+	"сгенери",
+	"свой вариант",
+	"свою версию",
+	"твоя версия",
+	"твой вариант",
+	"покажи как надо",
+	"покажи, как надо",
+	"сделай свой мем",
+	"сделай мем",
+	"переделай",
+}
+
+// isMemeRemakeRequest определяет, просит ли пользователь бота сделать свой вариант мема.
+func isMemeRemakeRequest(text string) bool {
+	t := strings.ToLower(text)
+	for _, marker := range memeRemakeMarkers {
+		if strings.Contains(t, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+// extractMemeSource достаёт из истории мема исходные картинки и текстовый контекст обсуждения.
+func extractMemeSource(history []models.MemeInteraction) (urls []string, context string) {
+	var b strings.Builder
+	for _, entry := range history {
+		content := entry.Content
+		switch {
+		case strings.HasPrefix(content, "[MEME_IMAGE: "):
+			urls = append(urls, strings.TrimSuffix(strings.TrimPrefix(content, "[MEME_IMAGE: "), "]"))
+		case strings.HasPrefix(content, "[MEME_GROUP: "):
+			list := strings.TrimSuffix(strings.TrimPrefix(content, "[MEME_GROUP: "), "]")
+			urls = append(urls, strings.Split(list, ", ")...)
+		case strings.HasPrefix(content, "[GENERATED_MEME]"):
+			b.WriteString("Сталин (ответил своим мемом): " + strings.TrimSpace(strings.TrimPrefix(content, "[GENERATED_MEME]")) + "\n")
+		default:
+			role := "Пользователь"
+			if entry.Role == "assistant" {
+				role = "Сталин"
+			}
+			b.WriteString(role + ": " + content + "\n")
+		}
+	}
+	return urls, b.String()
+}
+
+// handleMemeRemakeRequest — пользователь попросил бота показать свой вариант мема.
+func (h *BotHandlers) handleMemeRemakeRequest(ctx context.Context, message *tgbotapi.Message, memeID string) {
+	metrics.TrackMemeInteraction()
+
+	history, err := h.openaiService.GetMemeHistory(message.Chat.ID, memeID)
+	if err != nil {
+		log.Printf("Error getting meme history for remake: %v", err)
+		utils.SendReply(h.bot, message, "Не удалось вспомнить этот мем. Попробуйте позже.")
+		return
+	}
+
+	sourceURLs, memeContext := extractMemeSource(history)
+
+	request := fmt.Sprintf("Пользователь просит показать, как бы ТЫ сделал этот мем. Его слова: \"%s\". Придумай свою версию этого мема — сохрани тему, но сделай смешнее и в своём стиле.", message.Text)
+
+	imageData, caption, err := h.openaiService.GenerateMemeRemake(ctx, sourceURLs, memeContext, request, "request")
+	if err != nil {
+		log.Printf("Error generating meme remake: %v", err)
+		response, err := h.openaiService.GetMemeContextualResponse(ctx, message.Chat.ID, memeID, message.Text)
+		if err != nil {
+			log.Printf("Error getting fallback response: %v", err)
+			utils.SendReply(h.bot, message, "Что-то пошло не так, даже мем не нарисовался. Попробуйте позже.")
+			return
+		}
+		if sentMessage, err := utils.SendReply(h.bot, message, response); err == nil && sentMessage != nil {
+			h.openaiService.AddCommentMapping(sentMessage.MessageID, memeID)
+		}
+		return
+	}
+
+	sentMessage, err := utils.SendPhotoReply(h.bot, message, imageData, caption)
+	if err != nil {
+		log.Printf("Error sending meme remake: %v", err)
+		return
+	}
+
+	h.openaiService.AddMemeInteraction(message.Chat.ID, memeID, "user", message.Text)
+	h.openaiService.AddMemeInteraction(message.Chat.ID, memeID, "assistant", "[GENERATED_MEME] "+caption)
+
+	if sentMessage != nil {
+		h.openaiService.AddCommentMapping(sentMessage.MessageID, memeID)
+	}
+}
+
+// tryRandomMemeReply с небольшим шансом отвечает на мем не текстом, а своим сгенерированным мемом.
+// Возвращает true, если мем-ответ отправлен.
+func (h *BotHandlers) tryRandomMemeReply(ctx context.Context, message *tgbotapi.Message, imageURL, userCaption string) bool {
+	request := "Прокомментируй этот мем не словами, а СВОИМ мемом-ответом: придумай мем, который станет панчлайном или подколом к присланному мему."
+	if userCaption != "" {
+		request += fmt.Sprintf(" Автор подписал свой мем: \"%s\".", userCaption)
+	}
+
+	imageData, caption, err := h.openaiService.GenerateMemeRemake(ctx, []string{imageURL}, "", request, "random")
+	if err != nil {
+		log.Printf("Error generating random meme reply: %v", err)
+		return false
+	}
+
+	sentMessage, err := utils.SendPhotoReply(h.bot, message, imageData, caption)
+	if err != nil {
+		log.Printf("Error sending random meme reply: %v", err)
+		return false
+	}
+
+	memeID := message.Photo[len(message.Photo)-1].FileID
+	h.openaiService.AddMemeInteraction(message.Chat.ID, memeID, "user", fmt.Sprintf("[MEME_IMAGE: %s]", imageURL))
+	h.openaiService.AddMemeInteraction(message.Chat.ID, memeID, "assistant", "[GENERATED_MEME] "+caption)
+
+	if sentMessage != nil {
+		h.openaiService.AddCommentMapping(sentMessage.MessageID, memeID)
+	}
+
+	log.Printf("Replied to meme with generated meme: %s", caption)
+	return true
 }
 
 func (h *BotHandlers) sendInvalidChatMessage(message *tgbotapi.Message) {

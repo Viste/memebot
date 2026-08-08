@@ -15,6 +15,7 @@ var (
 	reMdStrike  = regexp.MustCompile(`(?s)~~(.+?)~~`)
 	reMdHeading = regexp.MustCompile(`(?m)^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$`)
 	reMdLink    = regexp.MustCompile(`\[([^\]\n]+)\]\(([^)\s]+)\)`)
+	reMdQuote   = regexp.MustCompile(`(?m)^\s{0,3}>\s?`)
 )
 
 // MarkdownToTelegramHTML конвертирует стандартный markdown в подмножество HTML, поддерживаемое Telegram.
@@ -44,6 +45,7 @@ func MarkdownToTelegramHTML(s string) string {
 	s = reMdStrike.ReplaceAllString(s, "<s>$1</s>")
 	s = reMdHeading.ReplaceAllString(s, "<b>$1</b>")
 	s = reMdLink.ReplaceAllString(s, `<a href="$2">$1</a>`)
+	s = convertBlockquotes(s)
 
 	for i, sp := range spans {
 		marker := fmt.Sprintf("\x00X%d\x00", i)
@@ -59,6 +61,40 @@ func MarkdownToTelegramHTML(s string) string {
 	return s
 }
 
+// convertBlockquotes собирает подряд идущие строки-цитаты (>) в <blockquote>.
+func convertBlockquotes(s string) string {
+	const expandableThreshold = 300
+
+	lines := strings.Split(s, "\n")
+	out := make([]string, 0, len(lines))
+	var quote []string
+
+	flush := func() {
+		if len(quote) == 0 {
+			return
+		}
+		content := strings.Join(quote, "\n")
+		tag := "<blockquote>"
+		if len([]rune(content)) > expandableThreshold {
+			tag = "<blockquote expandable>"
+		}
+		out = append(out, tag+content+"</blockquote>")
+		quote = nil
+	}
+
+	for _, line := range lines {
+		if strings.HasPrefix(line, "&gt;") {
+			quote = append(quote, strings.TrimPrefix(strings.TrimPrefix(line, "&gt;"), " "))
+		} else {
+			flush()
+			out = append(out, line)
+		}
+	}
+	flush()
+
+	return strings.Join(out, "\n")
+}
+
 // StripMarkdown убирает markdown-разметку, оставляя только текст
 func StripMarkdown(s string) string {
 	s = reMdPre.ReplaceAllString(s, "$1")
@@ -68,5 +104,6 @@ func StripMarkdown(s string) string {
 	s = reMdStrike.ReplaceAllString(s, "$1")
 	s = reMdHeading.ReplaceAllString(s, "$1")
 	s = reMdLink.ReplaceAllString(s, "$1")
+	s = reMdQuote.ReplaceAllString(s, "")
 	return s
 }

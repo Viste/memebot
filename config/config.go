@@ -22,6 +22,11 @@ type Config struct {
 	// OpenAI
 	OpenAIAPIKey  string
 	OpenAIBaseURL string
+	OpenAIModel   string
+
+	// Генерация мемов-картинок
+	ImageModel           string
+	MemeImageProbability float64
 
 	// Telegram API
 	TelegramAPIURL string
@@ -81,6 +86,25 @@ func Load() error {
 	config.OpenAIBaseURL = os.Getenv("OPENAI_BASE_URL")
 	if config.OpenAIBaseURL == "" {
 		config.OpenAIBaseURL = "http://31.172.78.152:9000/v1"
+	}
+
+	config.OpenAIModel = os.Getenv("OPENAI_MODEL")
+	if config.OpenAIModel == "" {
+		config.OpenAIModel = "gpt-5.6-terra"
+	}
+
+	config.ImageModel = os.Getenv("IMAGE_MODEL")
+	if config.ImageModel == "" {
+		config.ImageModel = "gpt-image-2"
+	}
+
+	config.MemeImageProbability = 0.02
+	if p := os.Getenv("MEME_IMAGE_PROBABILITY"); p != "" {
+		if v, err := strconv.ParseFloat(p, 64); err == nil && v >= 0 && v <= 1 {
+			config.MemeImageProbability = v
+		} else {
+			log.Printf("Warning: invalid MEME_IMAGE_PROBABILITY %q, using default", p)
+		}
 	}
 
 	config.TelegramAPIURL = os.Getenv("TELEGRAM_API_URL")

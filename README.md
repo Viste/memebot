@@ -4,17 +4,18 @@
 
 - 🤖 Обработка фото и видео мемов
 - 🧠 Интеграция с OpenAI для генерации комментариев (персона Сталина)
+- 🎨 Генерация мемов: по запросу «а как бы ты сделал этот мем» (реплаем на комментарий бота) и изредка спонтанно вместо текстового комментария (`MEME_IMAGE_PROBABILITY`)
 - 📝 История взаимодействий с мемами
 - 👥 Групповая обработка медиа
 - 🗄️ PostgreSQL база данных с GORM
 - 🌐 Web сервер для health checks
 - 🐳 Docker
 
-- **Language**: Go 1.21+
+- **Language**: Go 1.26+
 - **Database**: PostgreSQL 15+
 - **ORM**: GORM
-- **Telegram API**: go-telegram-bot-api
-- **OpenAI API**: go-openai
+- **Telegram API**: [OvyFlash/telegram-bot-api](https://github.com/OvyFlash/telegram-bot-api) — поддерживаемый drop-in форк go-telegram-bot-api с актуальным Bot API
+- **OpenAI API**: go-openai (комментарии + генерация картинок `gpt-image-2`)
 - **Web Framework**: Gin
 - **Containerization**: Docker
 

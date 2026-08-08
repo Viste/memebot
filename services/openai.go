@@ -18,11 +18,12 @@ import (
 type OpenAIService struct {
 	client              *openai.Client
 	model               string
+	imageModel          string
 	maxCompletionTokens int
 	reasoningEfforts    []string
 }
 
-func NewOpenAIService(apiKey, baseURL string) *OpenAIService {
+func NewOpenAIService(apiKey, baseURL, model, imageModel string) *OpenAIService {
 	config := openai.DefaultConfig(apiKey)
 	if baseURL != "" {
 		config.BaseURL = baseURL
@@ -30,9 +31,17 @@ func NewOpenAIService(apiKey, baseURL string) *OpenAIService {
 
 	client := openai.NewClientWithConfig(config)
 
+	if model == "" {
+		model = openai.GPT5Dot6Terra
+	}
+	if imageModel == "" {
+		imageModel = openai.CreateImageModelGptImage2
+	}
+
 	return &OpenAIService{
 		client:              client,
-		model:               "gpt-5.5",
+		model:               model,
+		imageModel:          imageModel,
 		maxCompletionTokens: 16384,
 		reasoningEfforts:    []string{"low", "medium"},
 	}

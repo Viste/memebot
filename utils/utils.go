@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	tgbotapi "github.com/OvyFlash/telegram-bot-api"
 )
 
 // MediaGroup для группировки медиа
@@ -160,7 +160,7 @@ func SendReply(bot *tgbotapi.BotAPI, message *tgbotapi.Message, text string) (*t
 	for i, chunk := range htmlChunks {
 		msg := tgbotapi.NewMessage(message.Chat.ID, chunk)
 		if i == 0 {
-			msg.ReplyToMessageID = message.MessageID
+			msg.ReplyParameters = tgbotapi.ReplyParameters{MessageID: message.MessageID}
 		}
 		msg.ParseMode = tgbotapi.ModeHTML
 
@@ -180,6 +180,29 @@ func SendReply(bot *tgbotapi.BotAPI, message *tgbotapi.Message, text string) (*t
 	}
 
 	return &lastMessage, nil
+}
+
+// SendPhotoReply отправляет сгенерированную картинку ответом на сообщение.
+func SendPhotoReply(bot *tgbotapi.BotAPI, message *tgbotapi.Message, imageData []byte, caption string) (*tgbotapi.Message, error) {
+	photo := tgbotapi.NewPhoto(message.Chat.ID, tgbotapi.FileBytes{
+		Name:  "stalin_meme.png",
+		Bytes: imageData,
+	})
+	photo.Caption = MarkdownToTelegramHTML(caption)
+	photo.ParseMode = tgbotapi.ModeHTML
+	photo.ReplyParameters = tgbotapi.ReplyParameters{MessageID: message.MessageID}
+
+	sent, err := bot.Send(photo)
+	if err != nil {
+		photo.Caption = StripMarkdown(caption)
+		photo.ParseMode = ""
+		sent, err = bot.Send(photo)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &sent, nil
 }
 
 // SendToChannel отправляет сообщение в канал
@@ -212,7 +235,13 @@ func SendVideoToChannel(bot *tgbotapi.BotAPI, channelID string, video tgbotapi.F
 func SendMediaGroupToChannel(bot *tgbotapi.BotAPI, channelID string, media []interface{}) error {
 	// Сначала пытаемся стандартным способом для int64
 	if chatID, err := strconv.ParseInt(channelID, 10, 64); err == nil {
-		msg := tgbotapi.NewMediaGroup(chatID, media)
+		inputMedia := make([]tgbotapi.InputMedia, 0, len(media))
+		for _, m := range media {
+			if im, ok := m.(tgbotapi.InputMedia); ok {
+				inputMedia = append(inputMedia, im)
+			}
+		}
+		msg := tgbotapi.NewMediaGroup(chatID, inputMedia)
 		if _, err := bot.Send(msg); err == nil {
 			return nil
 		}
