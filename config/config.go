@@ -27,6 +27,7 @@ type Config struct {
 	// Генерация мемов-картинок
 	ImageModel           string
 	MemeImageProbability float64
+	ChannelMemesPerDay   float64
 
 	// Telegram API
 	TelegramAPIURL string
@@ -104,6 +105,15 @@ func Load() error {
 			config.MemeImageProbability = v
 		} else {
 			log.Printf("Warning: invalid MEME_IMAGE_PROBABILITY %q, using default", p)
+		}
+	}
+
+	config.ChannelMemesPerDay = 2
+	if p := os.Getenv("CHANNEL_MEMES_PER_DAY"); p != "" {
+		if v, err := strconv.ParseFloat(p, 64); err == nil && v >= 0 && v <= 48 {
+			config.ChannelMemesPerDay = v
+		} else {
+			log.Printf("Warning: invalid CHANNEL_MEMES_PER_DAY %q, using default", p)
 		}
 	}
 

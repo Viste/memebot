@@ -205,6 +205,27 @@ func SendPhotoReply(bot *tgbotapi.BotAPI, message *tgbotapi.Message, imageData [
 	return &sent, nil
 }
 
+// SendPhotoBytesToChannel отправляет сгенерированную картинку в канал.
+// channelID — числовой ID или @username.
+func SendPhotoBytesToChannel(bot *tgbotapi.BotAPI, channelID string, imageData []byte, caption string) error {
+	file := tgbotapi.FileBytes{
+		Name:  "stalin_meme.png",
+		Bytes: imageData,
+	}
+
+	var photo tgbotapi.PhotoConfig
+	if chatID, err := strconv.ParseInt(channelID, 10, 64); err == nil {
+		photo = tgbotapi.NewPhoto(chatID, file)
+	} else {
+		photo = tgbotapi.NewPhoto(0, file)
+		photo.ChannelUsername = channelID
+	}
+	photo.Caption = StripMarkdown(caption)
+
+	_, err := bot.Send(photo)
+	return err
+}
+
 // SendToChannel отправляет сообщение в канал
 func SendToChannel(bot *tgbotapi.BotAPI, channelID string, photo tgbotapi.FileID, caption string) error {
 	if chatID, err := strconv.ParseInt(channelID, 10, 64); err == nil {

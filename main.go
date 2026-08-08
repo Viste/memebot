@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"memebot/config"
 	"memebot/database"
@@ -62,6 +63,12 @@ func main() {
 
 	webServer := web.NewServer(config.AppConfig.Port)
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	autoPoster := services.NewAutoPoster(bot, openaiService, config.AppConfig.Channel, config.AppConfig.ChannelMemesPerDay)
+	autoPoster.Start(ctx)
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
@@ -84,6 +91,7 @@ func main() {
 
 	<-quit
 	log.Println("Shutting down...")
+	cancel()
 
 	if err := database.Close(); err != nil {
 		log.Printf("Error closing database connection: %v", err)
