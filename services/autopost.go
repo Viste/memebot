@@ -70,13 +70,13 @@ func (ap *AutoPoster) nextDelay() time.Duration {
 }
 
 func (ap *AutoPoster) postGeneratedMeme(ctx context.Context) error {
-	sourceURLs, memeContext := ap.todayMemeInspiration()
+	sourceURLs, memeContext := ap.recentMemeInspiration()
 
 	var request string
 	if memeContext != "" || len(sourceURLs) > 0 {
-		request = "Ты ведёшь свой мемный канал. Выше — один из сегодняшних мемов подписчиков и твой комментарий к нему. Придумай СВОЙ мем по мотивам этой темы — не копию, а развитие или подкол — для поста в канал."
+		request = "Ты ведёшь свой мемный канал. Выше — один из недавних мемов подписчиков и твой комментарий к нему. Придумай СВОЙ мем по мотивам этой темы — не копию, а развитие или подкол — для поста в канал."
 	} else {
-		request = "Ты ведёшь свой мемный канал. Свежих мемов от подписчиков сегодня не было. Придумай самостоятельный смешной мем для поста в канал — про мемную культуру, будни канала или вечное."
+		request = "Ты ведёшь свой мемный канал. Свежих мемов от подписчиков не было. Придумай самостоятельный смешной мем для поста в канал — про мемную культуру, будни канала или вечное."
 	}
 
 	imageData, caption, err := ap.openai.GenerateMemeRemake(ctx, sourceURLs, memeContext, request, "channel")
@@ -84,46 +84,60 @@ func (ap *AutoPoster) postGeneratedMeme(ctx context.Context) error {
 		return fmt.Errorf("generate channel meme: %w", err)
 	}
 
-	if err := utils.SendPhotoBytesToChannel(ap.bot, ap.channel, imageData, caption); err != nil {
+	if err := utils.SendPhotoBytesToChannel(ap.bot, ap.channel, imageData, ""); err != nil {
 		metrics.TrackChannelPostError("generated_meme_send_failed")
 		return fmt.Errorf("send channel meme: %w", err)
 	}
 
 	metrics.TrackMemePosted("generated")
-	log.Printf("Posted generated meme to channel: %s", caption)
+	log.Printf("Posted generated meme to channel (idea caption was: %s)", caption)
 	return nil
 }
 
-// todayMemeInspiration выбирает случайный сегодняшний мем из истории взаимодействий:
-// возвращает его картинки и текстовый контекст (комментарии бота и обсуждение).
-func (ap *AutoPoster) todayMemeInspiration() (urls []string, memeContext string) {
-	dayStart := time.Now().Truncate(24 * time.Hour)
-
+// recentMemeInspiration выбирает случайный недавний мем из истории взаимодействий:
+// сперва за последние сутки, если пусто — за неделю.
+// Возвращает его картинки и текстовый контекст (комментарии бота и обсуждение).
+func (ap *AutoPoster) recentMemeInspiration() (urls []string, memeContext string) {
 	var memeID string
-	err := database.DB.Model(&models.MemeInteraction{}).
-		Select("meme_id").
-		Where("created_at >= ? AND role = ? AND (content LIKE ? OR content LIKE ?)",
-			dayStart, "user", "[MEME_IMAGE:%", "[MEME_GROUP:%").
-		Order("RANDOM()").
-		Limit(1).
-		Scan(&memeID).Error
-	if err != nil || memeID == "" {
+
+	for _, window := range []time.Duration{24 * time.Hour, 7 * 24 * time.Hour} {
+		since := time.Now().Add(-window)
+
+		var memeIDs []string
+		err := database.DB.Model(&models.MemeInteraction{}).
+			Distinct().
+			Where("created_at >= ? AND role = ? AND (content LIKE ? OR content LIKE ?)",
+				since, "user", "[MEME_IMAGE:%", "[MEME_GROUP:%").
+			Pluck("meme_id", &memeIDs).Error
 		if err != nil {
-			log.Printf("todayMemeInspiration query error: %v", err)
+			log.Printf("recentMemeInspiration query error (window %s): %v", window, err)
+			return nil, ""
 		}
+
+		log.Printf("Autopost inspiration: %d candidate memes in last %s", len(memeIDs), window)
+
+		if len(memeIDs) > 0 {
+			memeID = memeIDs[rand.Intn(len(memeIDs))]
+			break
+		}
+	}
+
+	if memeID == "" {
 		return nil, ""
 	}
 
 	var interactions []models.MemeInteraction
-	err = database.DB.
+	err := database.DB.
 		Where("meme_id = ?", memeID).
 		Order("created_at ASC").
 		Limit(20).
 		Find(&interactions).Error
 	if err != nil {
-		log.Printf("todayMemeInspiration history error: %v", err)
+		log.Printf("recentMemeInspiration history error: %v", err)
 		return nil, ""
 	}
+
+	log.Printf("Autopost inspiration: meme %s, %d interactions", memeID, len(interactions))
 
 	var b strings.Builder
 	for _, entry := range interactions {
