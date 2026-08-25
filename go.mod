@@ -3,7 +3,7 @@ module memebot
 go 1.26.0
 
 require (
-	github.com/OvyFlash/telegram-bot-api v0.0.0-20260715235732-aca8bf3898bb
+	github.com/OvyFlash/telegram-bot-api v0.0.0-20260824205439-537734d59550
 	github.com/gin-gonic/gin v1.9.1
 	github.com/jackc/pgx/v5 v5.4.3
 	github.com/joho/godotenv v1.5.1

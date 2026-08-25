@@ -392,6 +392,7 @@ func (h *BotHandlers) handlePrivateVideo(message *tgbotapi.Message) {
 	}
 
 	metrics.TrackMemePosted("video")
+	services.RecordChannelMeme(message.Video.FileID, "video", message.From, "")
 	utils.SendReply(h.bot, message, "Спасибо за мем! Пока-пока")
 }
 
@@ -423,6 +424,13 @@ func (h *BotHandlers) processMediaGroup(groupID string, originalMessage *tgbotap
 	}
 
 	metrics.TrackMemePosted("media_group")
+	for _, item := range group.Media {
+		if photo, ok := item.(tgbotapi.InputMediaPhoto); ok {
+			if fid, ok := photo.Media.(tgbotapi.FileID); ok {
+				services.RecordChannelMeme(string(fid), "photo", originalMessage.From, groupID)
+			}
+		}
+	}
 	utils.SendReply(h.bot, originalMessage, "Спасибо за мем! Приходи еще")
 }
 
@@ -436,6 +444,7 @@ func (h *BotHandlers) sendSinglePhoto(fileID, caption string, message *tgbotapi.
 	}
 
 	metrics.TrackMemePosted("photo")
+	services.RecordChannelMeme(fileID, "photo", message.From, "")
 	utils.SendReply(h.bot, message, "Спасибо за мем! Пока-пока")
 }
 

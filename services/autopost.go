@@ -94,36 +94,86 @@ func (ap *AutoPoster) postGeneratedMeme(ctx context.Context) error {
 	return nil
 }
 
-// recentMemeInspiration выбирает случайный недавний мем из истории взаимодействий:
-// сперва за последние сутки, если пусто — за неделю.
-// Возвращает его картинки и текстовый контекст (комментарии бота и обсуждение).
+// recentMemeInspiration выбирает случайный недавний мем: сперва за последние сутки,
+// если пусто — за неделю. Кандидаты берутся из таблицы memes (всё, что бот запостил в канал
+// из личек) и из meme_interactions (что бот комментировал в группе).
+// Возвращает свежие ссылки на картинки и текстовый контекст.
 func (ap *AutoPoster) recentMemeInspiration() (urls []string, memeContext string) {
-	var memeID string
-
 	for _, window := range []time.Duration{24 * time.Hour, 7 * 24 * time.Hour} {
 		since := time.Now().Add(-window)
+		candidates := ap.candidateMemes(since)
 
-		var memeIDs []string
-		err := database.DB.Model(&models.MemeInteraction{}).
-			Distinct().
-			Where("created_at >= ? AND role = ? AND (content LIKE ? OR content LIKE ?)",
-				since, "user", "[MEME_IMAGE:%", "[MEME_GROUP:%").
-			Pluck("meme_id", &memeIDs).Error
-		if err != nil {
-			log.Printf("recentMemeInspiration query error (window %s): %v", window, err)
-			return nil, ""
+		log.Printf("Autopost inspiration: %d candidate memes in last %s", len(candidates), window)
+
+		if len(candidates) == 0 {
+			continue
 		}
 
-		log.Printf("Autopost inspiration: %d candidate memes in last %s", len(memeIDs), window)
+		memeID := candidates[rand.Intn(len(candidates))]
+		urls, memeContext = ap.memeDetails(memeID)
+		log.Printf("Autopost inspiration: picked meme %s (%d images, context %d chars)", memeID, len(urls), len(memeContext))
+		return urls, memeContext
+	}
 
-		if len(memeIDs) > 0 {
-			memeID = memeIDs[rand.Intn(len(memeIDs))]
-			break
+	return nil, ""
+}
+
+// candidateMemes собирает уникальные ID мемов из обоих источников.
+func (ap *AutoPoster) candidateMemes(since time.Time) []string {
+	seen := make(map[string]bool)
+	var out []string
+	add := func(id string) {
+		if id != "" && !seen[id] {
+			seen[id] = true
+			out = append(out, id)
 		}
 	}
 
-	if memeID == "" {
-		return nil, ""
+	for _, id := range RecentChannelPhotoIDs(since) {
+		add(id)
+	}
+
+	var interactionIDs []string
+	err := database.DB.Model(&models.MemeInteraction{}).
+		Distinct().
+		Where("created_at >= ? AND role = ? AND (content LIKE ? OR content LIKE ?)",
+			since, "user", "[MEME_IMAGE:%", "[MEME_GROUP:%").
+		Pluck("meme_id", &interactionIDs).Error
+	if err != nil {
+		log.Printf("candidateMemes interactions query error: %v", err)
+	}
+	for _, id := range interactionIDs {
+		add(id)
+	}
+
+	return out
+}
+
+// memeDetails собирает по ID мема свежие ссылки на картинки и текстовый контекст.
+// Для одиночных фото ID — это telegram file_id, по нему берём свежую ссылку через getFile
+// (старые ссылки из истории живут ~час и обычно уже протухли).
+func (ap *AutoPoster) memeDetails(memeID string) (urls []string, memeContext string) {
+	var b strings.Builder
+
+	if !strings.HasPrefix(memeID, "group_") {
+		file, err := ap.bot.GetFile(tgbotapi.FileConfig{FileID: memeID})
+		if err != nil {
+			log.Printf("memeDetails getFile %s error: %v", memeID, err)
+		} else if file.FilePath != "" {
+			urls = append(urls, utils.GetImageURL(ap.bot.Token, file.FilePath))
+		}
+
+		var meme models.Meme
+		if err := database.DB.Where("file_id = ?", memeID).First(&meme).Error; err == nil {
+			name := "аноним"
+			if meme.FirstName != nil && *meme.FirstName != "" {
+				name = *meme.FirstName
+				if meme.LastName != nil && *meme.LastName != "" {
+					name += " " + *meme.LastName
+				}
+			}
+			b.WriteString("Мем прислал в канал подписчик " + name + ".\n")
+		}
 	}
 
 	var interactions []models.MemeInteraction
@@ -133,21 +183,21 @@ func (ap *AutoPoster) recentMemeInspiration() (urls []string, memeContext string
 		Limit(20).
 		Find(&interactions).Error
 	if err != nil {
-		log.Printf("recentMemeInspiration history error: %v", err)
-		return nil, ""
+		log.Printf("memeDetails history error: %v", err)
 	}
 
-	log.Printf("Autopost inspiration: meme %s, %d interactions", memeID, len(interactions))
-
-	var b strings.Builder
 	for _, entry := range interactions {
 		content := entry.Content
 		switch {
 		case strings.HasPrefix(content, "[MEME_IMAGE: "):
-			urls = append(urls, strings.TrimSuffix(strings.TrimPrefix(content, "[MEME_IMAGE: "), "]"))
+			if len(urls) == 0 {
+				urls = append(urls, strings.TrimSuffix(strings.TrimPrefix(content, "[MEME_IMAGE: "), "]"))
+			}
 		case strings.HasPrefix(content, "[MEME_GROUP: "):
-			list := strings.TrimSuffix(strings.TrimPrefix(content, "[MEME_GROUP: "), "]")
-			urls = append(urls, strings.Split(list, ", ")...)
+			if len(urls) == 0 {
+				list := strings.TrimSuffix(strings.TrimPrefix(content, "[MEME_GROUP: "), "]")
+				urls = append(urls, strings.Split(list, ", ")...)
+			}
 		default:
 			role := "Подписчик"
 			if entry.Role == "assistant" {
