@@ -36,6 +36,11 @@ func NewBotHandlers(bot *tgbotapi.BotAPI, openaiService *services.OpenAIService,
 }
 
 func (h *BotHandlers) HandleUpdate(update tgbotapi.Update) {
+	if update.ChannelPost != nil {
+		h.handleChannelPost(update.ChannelPost)
+		return
+	}
+
 	if update.Message == nil {
 		return
 	}
@@ -57,6 +62,40 @@ func (h *BotHandlers) HandleUpdate(update tgbotapi.Update) {
 	} else if message.Chat.IsGroup() || message.Chat.IsSuperGroup() {
 		h.handleGroupMessage(message)
 	}
+}
+
+// handleChannelPost запоминает мемы, которые админы постят в канал напрямую
+func (h *BotHandlers) handleChannelPost(post *tgbotapi.Message) {
+	if !h.isOurChannel(post.Chat) {
+		return
+	}
+
+	var from *tgbotapi.User
+	if post.AuthorSignature != "" {
+		from = &tgbotapi.User{FirstName: post.AuthorSignature}
+	}
+
+	hasCaption := post.Caption != ""
+
+	switch {
+	case len(post.Photo) > 0:
+		photo := post.Photo[len(post.Photo)-1]
+		services.RecordChannelMeme(photo.FileID, "photo", from, post.MediaGroupID)
+		metrics.TrackMemeReceived("channel_photo", hasCaption)
+		log.Printf("Recorded channel photo post %d by %q", post.MessageID, post.AuthorSignature)
+	case post.Video != nil:
+		services.RecordChannelMeme(post.Video.FileID, "video", from, post.MediaGroupID)
+		metrics.TrackMemeReceived("channel_video", hasCaption)
+		log.Printf("Recorded channel video post %d by %q", post.MessageID, post.AuthorSignature)
+	}
+}
+
+// isOurChannel сверяет чат с настроенным каналом (числовой ID или @username).
+func (h *BotHandlers) isOurChannel(chat tgbotapi.Chat) bool {
+	if chatID, err := strconv.ParseInt(h.config.Channel, 10, 64); err == nil {
+		return chat.ID == chatID
+	}
+	return chat.UserName != "" && "@"+chat.UserName == h.config.Channel
 }
 
 func (h *BotHandlers) handleCommand(message *tgbotapi.Message) {
