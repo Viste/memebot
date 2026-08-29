@@ -182,6 +182,43 @@ func SendReply(bot *tgbotapi.BotAPI, message *tgbotapi.Message, text string) (*t
 	return &lastMessage, nil
 }
 
+const (
+	EffectFire     = "5104841245755180586" // 🔥
+	EffectThumbsUp = "5107584321108051014" // 👍
+	EffectHeart    = "5159385139981059251" // ❤️
+	EffectPoop     = "5046589136895476101" // 💩
+)
+
+func SendReplyWithEffect(bot *tgbotapi.BotAPI, message *tgbotapi.Message, text, effectID string) (*tgbotapi.Message, error) {
+	msg := tgbotapi.NewMessage(message.Chat.ID, MarkdownToTelegramHTML(text))
+	msg.ParseMode = tgbotapi.ModeHTML
+	msg.ReplyParameters = tgbotapi.ReplyParameters{MessageID: message.MessageID}
+	msg.MessageEffectID = effectID
+
+	sent, err := bot.Send(msg)
+	if err != nil {
+		return SendReply(bot, message, text)
+	}
+	return &sent, nil
+}
+
+func SendEphemeralReply(bot *tgbotapi.BotAPI, message *tgbotapi.Message, text string) (*tgbotapi.Message, error) {
+	if message.From == nil || message.Chat.IsPrivate() {
+		return SendReply(bot, message, text)
+	}
+
+	msg := tgbotapi.NewMessage(message.Chat.ID, MarkdownToTelegramHTML(text))
+	msg.ParseMode = tgbotapi.ModeHTML
+	msg.ReplyParameters = tgbotapi.ReplyParameters{MessageID: message.MessageID}
+	msg.EphemeralMessageParameters = tgbotapi.EphemeralMessageParameters{ReceiverUserID: message.From.ID}
+
+	sent, err := bot.Send(msg)
+	if err != nil {
+		return SendReply(bot, message, text)
+	}
+	return &sent, nil
+}
+
 // SendPhotoReply отправляет сгенерированную картинку ответом на сообщение.
 func SendPhotoReply(bot *tgbotapi.BotAPI, message *tgbotapi.Message, imageData []byte, caption string) (*tgbotapi.Message, error) {
 	photo := tgbotapi.NewPhoto(message.Chat.ID, tgbotapi.FileBytes{

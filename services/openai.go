@@ -2,7 +2,9 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"log"
 	"math/rand"
 	"memebot/database"
@@ -16,11 +18,12 @@ import (
 )
 
 type OpenAIService struct {
-	client              *openai.Client
-	model               string
-	imageModel          string
-	maxCompletionTokens int
-	reasoningEfforts    []string
+	client                  *openai.Client
+	model                   string
+	imageModel              string
+	maxCompletionTokens     int
+	reasoningEfforts        []string
+	criminalCodeProbability float64 // шанс «разрешить» статью УК в комментарии
 }
 
 func NewOpenAIService(apiKey, baseURL, model, imageModel string) *OpenAIService {
@@ -91,6 +94,21 @@ const basePromptTemplate = `{
       "Не объясняй шутку — реагируй и оценивай"
     ]
   },
+  "soviet_criminal_code_gag": {
+    "rule": "Иногда, если мем даёт явный повод, можно вскользь «назначить» автору или герою мема статью — одной фразой, вплетённой в реплику, как приговор в коридоре. Без пояснений, без цитирования формулировок, без морали. Только реальные статьи УК РСФСР 1926 года и указы той эпохи из списка ниже.",
+    "articles": [
+      "ст. 58-10 — антисоветская агитация (критика начальства, власти, нытьё про страну)",
+      "ст. 58-14 — контрреволюционный саботаж (лень на работе, срыв планов, прокрастинация)",
+      "ст. 107 — спекуляция (перекупы, маркетплейсы, цены, «купи-продай»)",
+      "ст. 74 — хулиганство (дебош, беспредел, шалости)",
+      "ст. 102 — самогоноварение (алкоголь, бухло, похмелье)",
+      "ст. 162 — кража (любое мелкое хищение, «взял попользоваться»)",
+      "закон от 7 августа 1932 «о трёх колосках» — за самую ничтожную кражу",
+      "Указ от 26 июня 1940 — опоздание на работу более чем на 20 минут (понедельник, будильник, удалёнка, проспал)",
+      "тунеядство — формально введут только в 1961-м, но ты умеешь предвидеть (безделье, диван, безработица)"
+    ],
+    "frequency": "Ни в коем случае не в каждом комментарии. Ориентируйся на поле today_context.criminal_code_today."
+  },
   "output_format": {
     "mode": "Одна живая реплика-мини-рецензия сплошным текстом, как сообщение в чате",
     "length": "1-4 предложения, без воды",
@@ -106,7 +124,8 @@ const basePromptTemplate = `{
   "today_context": {
     "actual_date": "%s",
     "mood_today": "%s",
-    "tone_today": "%s"
+    "tone_today": "%s",
+    "criminal_code_today": "%s"
   }
 }`
 
@@ -138,9 +157,75 @@ func currentDateRussian() string {
 	return fmt.Sprintf("%s %d", russianMonths[t.Month()-1], t.Year())
 }
 
+// SetCriminalCodeProbability задаёт, как часто боту «разрешено» вплетать в комментарий статью УК РСФСР.
+func (s *OpenAIService) SetCriminalCodeProbability(p float64) {
+	s.criminalCodeProbability = p
+}
+
 func (s *OpenAIService) buildSystemPrompt() string {
 	vibe := personaVibes[rand.Intn(len(personaVibes))]
-	return fmt.Sprintf(basePromptTemplate, currentDateRussian(), vibe.mood, vibe.tone)
+
+	criminalCode := "сегодня без статей УК — обходись словами"
+	if rand.Float64() < s.criminalCodeProbability {
+		criminalCode = "сегодня уместно вплести статью УК РСФСР, если мем даёт для этого явный повод"
+	}
+
+	return fmt.Sprintf(basePromptTemplate, currentDateRussian(), vibe.mood, vibe.tone, criminalCode)
+}
+
+type StreamCallback func(partial string)
+
+func (s *OpenAIService) chatComplete(ctx context.Context, messages []openai.ChatCompletionMessage, onDelta StreamCallback) (openai.ChatCompletionResponse, error) {
+	req := openai.ChatCompletionRequest{
+		Model:               s.model,
+		Messages:            messages,
+		MaxCompletionTokens: s.maxCompletionTokens,
+		ReasoningEffort:     s.getRandomReasoningEffort(),
+	}
+
+	if onDelta == nil {
+		return s.client.CreateChatCompletion(ctx, req)
+	}
+
+	req.Stream = true
+	req.StreamOptions = &openai.StreamOptions{IncludeUsage: true}
+
+	stream, err := s.client.CreateChatCompletionStream(ctx, req)
+	if err != nil {
+		return openai.ChatCompletionResponse{}, err
+	}
+	defer stream.Close()
+
+	var resp openai.ChatCompletionResponse
+	var content strings.Builder
+
+	for {
+		chunk, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return resp, err
+		}
+		if chunk.Usage != nil {
+			resp.Usage = *chunk.Usage
+		}
+		if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
+			content.WriteString(chunk.Choices[0].Delta.Content)
+			onDelta(content.String())
+		}
+	}
+
+	if content.Len() > 0 {
+		resp.Choices = []openai.ChatCompletionChoice{{
+			Message: openai.ChatCompletionMessage{
+				Role:    openai.ChatMessageRoleAssistant,
+				Content: content.String(),
+			},
+		}}
+	}
+
+	return resp, nil
 }
 
 func (s *OpenAIService) getRandomReasoningEffort() string {
@@ -280,7 +365,7 @@ func (s *OpenAIService) buildLoreContext(userID int64) string {
 	return b.String()
 }
 
-func (s *OpenAIService) GenerateCommentFromImage(ctx context.Context, imageURL string, userID int64, caption string) (string, error) {
+func (s *OpenAIService) GenerateCommentFromImage(ctx context.Context, imageURL string, userID int64, caption string, onDelta StreamCallback) (string, error) {
 	startTime := time.Now()
 
 	userPrompt := "Ну вот и дождались! Посмотрим, что тут за мем завезли. Если усмехнусь — это успех. Eсли вдруг захочу отправить тебя в Сибирь, трудовой лагерь, на Колыму, или урановые рудники не обижайся. Посмотрим, кто победит — твой юмор или моя строгость. Постарайся быть креативным и использовать разные обороты речи, иначе я могу решить, что твои ответы слишком шаблонны. Пиши сплошным текстом, как реплика в чате — без маркированных списков, нумерации и заголовков."
@@ -317,12 +402,7 @@ func (s *OpenAIService) GenerateCommentFromImage(ctx context.Context, imageURL s
 		},
 	})
 
-	resp, err := s.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
-		Model:               s.model,
-		Messages:            messages,
-		MaxCompletionTokens: s.maxCompletionTokens,
-		ReasoningEffort:     s.getRandomReasoningEffort(),
-	})
+	resp, err := s.chatComplete(ctx, messages, onDelta)
 
 	duration := time.Since(startTime).Seconds()
 
@@ -351,7 +431,7 @@ func (s *OpenAIService) GenerateCommentFromImage(ctx context.Context, imageURL s
 	return resp.Choices[0].Message.Content, nil
 }
 
-func (s *OpenAIService) GenerateCommentFromImages(ctx context.Context, imageURLs []string, userID int64, caption string) (string, error) {
+func (s *OpenAIService) GenerateCommentFromImages(ctx context.Context, imageURLs []string, userID int64, caption string, onDelta StreamCallback) (string, error) {
 	startTime := time.Now()
 
 	userPrompt := "Ну что, давайте посмотрим, что тут за группа мемов! Если я усмехнусь — это успех. Ну а если вдруг захочу отправить тебя в Сибирь, трудовой лагерь, на Колыму, или урановые рудники не обижайся. Посмотрим, кто победит — твой юмор или моя строгость. Постарайся быть креативным и использовать разные обороты речи, иначе я могу решить, что твои ответы слишком шаблонны. Пиши сплошным текстом, как реплика в чате — без маркированных списков, нумерации и заголовков."
@@ -393,12 +473,7 @@ func (s *OpenAIService) GenerateCommentFromImages(ctx context.Context, imageURLs
 		MultiContent: parts,
 	})
 
-	resp, err := s.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
-		Model:               s.model,
-		Messages:            messages,
-		MaxCompletionTokens: s.maxCompletionTokens,
-		ReasoningEffort:     s.getRandomReasoningEffort(),
-	})
+	resp, err := s.chatComplete(ctx, messages, onDelta)
 
 	duration := time.Since(startTime).Seconds()
 
@@ -427,7 +502,7 @@ func (s *OpenAIService) GenerateCommentFromImages(ctx context.Context, imageURLs
 	return resp.Choices[0].Message.Content, nil
 }
 
-func (s *OpenAIService) GetResponse(ctx context.Context, query string, userID int64) (string, error) {
+func (s *OpenAIService) GetResponse(ctx context.Context, query string, userID int64, onDelta StreamCallback) (string, error) {
 	history, err := s.getUserHistory(userID)
 	if err != nil {
 		return "", err
@@ -456,12 +531,7 @@ func (s *OpenAIService) GetResponse(ctx context.Context, query string, userID in
 		Content: query,
 	})
 
-	resp, err := s.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
-		Model:               s.model,
-		Messages:            messages,
-		MaxCompletionTokens: s.maxCompletionTokens,
-		ReasoningEffort:     s.getRandomReasoningEffort(),
-	})
+	resp, err := s.chatComplete(ctx, messages, onDelta)
 
 	if err != nil {
 		return "", fmt.Errorf("OpenAI API error: %w", err)
@@ -603,14 +673,14 @@ func (s *OpenAIService) GetRecentMemes(userID int64, limit int) ([]string, error
 	return memeIDs, nil
 }
 
-func (s *OpenAIService) GetMemeContextualResponse(ctx context.Context, userID int64, memeID, query string) (string, error) {
+func (s *OpenAIService) GetMemeContextualResponse(ctx context.Context, userID int64, memeID, query string, onDelta StreamCallback) (string, error) {
 	memeHistory, err := s.GetMemeHistory(userID, memeID)
 	if err != nil {
 		return "", err
 	}
 
 	if len(memeHistory) == 0 {
-		return s.GetResponse(ctx, query, userID)
+		return s.GetResponse(ctx, query, userID, onDelta)
 	}
 
 	var contextualPrompt strings.Builder
@@ -631,7 +701,7 @@ func (s *OpenAIService) GetMemeContextualResponse(ctx context.Context, userID in
 	contextualPrompt.WriteString(fmt.Sprintf("\nПользователь сейчас спрашивает: %s\n", query))
 	contextualPrompt.WriteString("Ответь на комментарий пользователя, сохраняя свой характер Сталина и помня контекст мема.")
 
-	response, err := s.GetResponse(ctx, contextualPrompt.String(), userID)
+	response, err := s.GetResponse(ctx, contextualPrompt.String(), userID, onDelta)
 	if err != nil {
 		return "", err
 	}

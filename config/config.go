@@ -25,9 +25,10 @@ type Config struct {
 	OpenAIModel   string
 
 	// Генерация мемов-картинок
-	ImageModel           string
-	MemeImageProbability float64
-	ChannelMemesPerDay   float64
+	ImageModel              string
+	MemeImageProbability    float64
+	ChannelMemesPerDay      float64
+	CriminalCodeProbability float64 // шанс вплести в комментарий статью УК РСФСР
 
 	// Telegram API
 	TelegramAPIURL string
@@ -114,6 +115,15 @@ func Load() error {
 			config.ChannelMemesPerDay = v
 		} else {
 			log.Printf("Warning: invalid CHANNEL_MEMES_PER_DAY %q, using default", p)
+		}
+	}
+
+	config.CriminalCodeProbability = 0.5
+	if p := os.Getenv("CRIMINAL_CODE_PROBABILITY"); p != "" {
+		if v, err := strconv.ParseFloat(p, 64); err == nil && v >= 0 && v <= 1 {
+			config.CriminalCodeProbability = v
+		} else {
+			log.Printf("Warning: invalid CRIMINAL_CODE_PROBABILITY %q, using default", p)
 		}
 	}
 

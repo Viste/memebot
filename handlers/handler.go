@@ -203,12 +203,12 @@ func (h *BotHandlers) handleForgetCommand(message *tgbotapi.Message) {
 
 	if err != nil {
 		log.Printf("Error getting chat member: %v", err)
-		utils.SendReply(h.bot, message, "Не удалось проверить права доступа.")
+		utils.SendEphemeralReply(h.bot, message, "Не удалось проверить права доступа.")
 		return
 	}
 
 	if chatMember.Status != "administrator" && chatMember.Status != "creator" {
-		utils.SendReply(h.bot, message, "Только администраторы могут использовать эту команду.")
+		utils.SendEphemeralReply(h.bot, message, "Только администраторы могут использовать эту команду.")
 		return
 	}
 
@@ -245,12 +245,12 @@ func (h *BotHandlers) handleHelpCommand(message *tgbotapi.Message) {
 
 Отправляй мемы и получай саркастичные комментарии от товарища Сталина! 😄`
 
-	utils.SendReply(h.bot, message, helpText)
+	utils.SendEphemeralReply(h.bot, message, helpText)
 }
 
 func (h *BotHandlers) handleMigrateBansCommand(message *tgbotapi.Message) {
 	if !h.config.IsUserAdmin(message.From.ID) {
-		utils.SendReply(h.bot, message, "Только администраторы могут использовать эту команду.")
+		utils.SendEphemeralReply(h.bot, message, "Только администраторы могут использовать эту команду.")
 		return
 	}
 
@@ -266,19 +266,19 @@ func (h *BotHandlers) handleMigrateBansCommand(message *tgbotapi.Message) {
 
 func (h *BotHandlers) handleBanCommand(message *tgbotapi.Message) {
 	if !h.config.IsUserAdmin(message.From.ID) {
-		utils.SendReply(h.bot, message, "Только администраторы могут использовать эту команду.")
+		utils.SendEphemeralReply(h.bot, message, "Только администраторы могут использовать эту команду.")
 		return
 	}
 
 	args := strings.Fields(message.Text)
 	if len(args) < 3 {
-		utils.SendReply(h.bot, message, "Использование: /ban <user_id> <причина>")
+		utils.SendEphemeralReply(h.bot, message, "Использование: /ban <user_id> <причина>")
 		return
 	}
 
 	userID, err := strconv.ParseInt(args[1], 10, 64)
 	if err != nil {
-		utils.SendReply(h.bot, message, "Неверный ID пользователя.")
+		utils.SendEphemeralReply(h.bot, message, "Неверный ID пользователя.")
 		return
 	}
 
@@ -297,19 +297,19 @@ func (h *BotHandlers) handleBanCommand(message *tgbotapi.Message) {
 
 func (h *BotHandlers) handleUnbanCommand(message *tgbotapi.Message) {
 	if !h.config.IsUserAdmin(message.From.ID) {
-		utils.SendReply(h.bot, message, "Только администраторы могут использовать эту команду.")
+		utils.SendEphemeralReply(h.bot, message, "Только администраторы могут использовать эту команду.")
 		return
 	}
 
 	args := strings.Fields(message.Text)
 	if len(args) < 2 {
-		utils.SendReply(h.bot, message, "Использование: /unban <user_id>")
+		utils.SendEphemeralReply(h.bot, message, "Использование: /unban <user_id>")
 		return
 	}
 
 	userID, err := strconv.ParseInt(args[1], 10, 64)
 	if err != nil {
-		utils.SendReply(h.bot, message, "Неверный ID пользователя.")
+		utils.SendEphemeralReply(h.bot, message, "Неверный ID пользователя.")
 		return
 	}
 
@@ -326,19 +326,19 @@ func (h *BotHandlers) handleUnbanCommand(message *tgbotapi.Message) {
 
 func (h *BotHandlers) handleBanlistCommand(message *tgbotapi.Message) {
 	if !h.config.IsUserAdmin(message.From.ID) {
-		utils.SendReply(h.bot, message, "Только администраторы могут использовать эту команду.")
+		utils.SendEphemeralReply(h.bot, message, "Только администраторы могут использовать эту команду.")
 		return
 	}
 
 	bans, err := h.banService.GetBannedUsers(20)
 	if err != nil {
 		log.Printf("Error getting banned users: %v", err)
-		utils.SendReply(h.bot, message, "Ошибка при получении списка банов.")
+		utils.SendEphemeralReply(h.bot, message, "Ошибка при получении списка банов.")
 		return
 	}
 
 	if len(bans) == 0 {
-		utils.SendReply(h.bot, message, "Список банов пуст.")
+		utils.SendEphemeralReply(h.bot, message, "Список банов пуст.")
 		return
 	}
 
@@ -366,14 +366,12 @@ func (h *BotHandlers) handleBanlistCommand(message *tgbotapi.Message) {
 			i+1, ban.UserID, name, reason, ban.BannedAt.Format("02.01.2006 15:04")))
 	}
 
-	utils.SendReply(h.bot, message, response.String())
+	utils.SendEphemeralReply(h.bot, message, response.String())
 }
 
 func (h *BotHandlers) handlePrivateMessage(message *tgbotapi.Message) {
 	if h.banService.IsUserBanned(message.From.ID) {
-		msg := tgbotapi.NewMessage(message.Chat.ID, "не хочу с тобой разговаривать")
-		msg.ReplyParameters = tgbotapi.ReplyParameters{MessageID: message.MessageID}
-		h.bot.Send(msg)
+		utils.SendReplyWithEffect(h.bot, message, "не хочу с тобой разговаривать", utils.EffectPoop)
 		return
 	}
 
@@ -432,7 +430,7 @@ func (h *BotHandlers) handlePrivateVideo(message *tgbotapi.Message) {
 
 	metrics.TrackMemePosted("video")
 	services.RecordChannelMeme(message.Video.FileID, "video", message.From, "")
-	utils.SendReply(h.bot, message, "Спасибо за мем! Пока-пока")
+	utils.SendReplyWithEffect(h.bot, message, "Спасибо за мем! Пока-пока", utils.EffectFire)
 }
 
 func (h *BotHandlers) handleMediaGroup(groupID, fileID, caption string, message *tgbotapi.Message) {
@@ -470,7 +468,7 @@ func (h *BotHandlers) processMediaGroup(groupID string, originalMessage *tgbotap
 			}
 		}
 	}
-	utils.SendReply(h.bot, originalMessage, "Спасибо за мем! Приходи еще")
+	utils.SendReplyWithEffect(h.bot, originalMessage, "Спасибо за мем! Приходи еще", utils.EffectFire)
 }
 
 func (h *BotHandlers) sendSinglePhoto(fileID, caption string, message *tgbotapi.Message) {
@@ -484,7 +482,7 @@ func (h *BotHandlers) sendSinglePhoto(fileID, caption string, message *tgbotapi.
 
 	metrics.TrackMemePosted("photo")
 	services.RecordChannelMeme(fileID, "photo", message.From, "")
-	utils.SendReply(h.bot, message, "Спасибо за мем! Пока-пока")
+	utils.SendReplyWithEffect(h.bot, message, "Спасибо за мем! Пока-пока", utils.EffectFire)
 }
 
 func (h *BotHandlers) handleGroupMessage(message *tgbotapi.Message) {
@@ -572,7 +570,10 @@ func (h *BotHandlers) processCommentMediaGroup(groupID string) {
 	// Берем caption из первого сообщения, если он есть
 	caption := messages[0].Caption
 
-	comment, err := h.openaiService.GenerateCommentFromImages(ctx, imageURLs, messages[0].Chat.ID, caption)
+	draft := utils.NewDraft(h.bot, messages[0])
+	draft.Thinking()
+
+	comment, err := h.openaiService.GenerateCommentFromImages(ctx, imageURLs, messages[0].Chat.ID, caption, draft.Update)
 	if err != nil {
 		log.Printf("Error generating comment for images: %v", err)
 		return
@@ -622,7 +623,10 @@ func (h *BotHandlers) handleSinglePhotoComment(ctx context.Context, message *tgb
 		}
 	}
 
-	comment, err := h.openaiService.GenerateCommentFromImage(ctx, imageURL, message.Chat.ID, caption)
+	draft := utils.NewDraft(h.bot, message)
+	draft.Thinking()
+
+	comment, err := h.openaiService.GenerateCommentFromImage(ctx, imageURL, message.Chat.ID, caption, draft.Update)
 	if err != nil {
 		log.Printf("Error generating comment for single photo: %v", err)
 		utils.SendReply(h.bot, message, "Не удалось обработать фотографию. Попробуйте еще раз.")
@@ -663,14 +667,17 @@ func (h *BotHandlers) handleReplyToBot(message *tgbotapi.Message) {
 		return
 	}
 
+	draft := utils.NewDraft(h.bot, message)
+	draft.Thinking()
+
 	var response string
 
 	if memeID != "" {
 		metrics.TrackMemeInteraction()
-		response, err = h.openaiService.GetMemeContextualResponse(ctx, message.Chat.ID, memeID, message.Text)
+		response, err = h.openaiService.GetMemeContextualResponse(ctx, message.Chat.ID, memeID, message.Text, draft.Update)
 	} else {
 		metrics.TrackDialogInteraction()
-		response, err = h.openaiService.GetResponse(ctx, message.Text, message.Chat.ID)
+		response, err = h.openaiService.GetResponse(ctx, message.Text, message.Chat.ID, draft.Update)
 	}
 
 	if err != nil {
@@ -758,10 +765,12 @@ func (h *BotHandlers) handleMemeRemakeRequest(ctx context.Context, message *tgbo
 
 	request := fmt.Sprintf("Пользователь просит показать, как бы ТЫ сделал этот мем. Его слова: \"%s\". Придумай свою версию этого мема — сохрани тему, но сделай смешнее и в своём стиле.", message.Text)
 
+	stopAction := utils.KeepChatAction(h.bot, message, tgbotapi.ChatUploadPhoto)
 	imageData, caption, err := h.openaiService.GenerateMemeRemake(ctx, sourceURLs, memeContext, request, "request")
+	stopAction()
 	if err != nil {
 		log.Printf("Error generating meme remake: %v", err)
-		response, err := h.openaiService.GetMemeContextualResponse(ctx, message.Chat.ID, memeID, message.Text)
+		response, err := h.openaiService.GetMemeContextualResponse(ctx, message.Chat.ID, memeID, message.Text, nil)
 		if err != nil {
 			log.Printf("Error getting fallback response: %v", err)
 			utils.SendReply(h.bot, message, "Что-то пошло не так, даже мем не нарисовался. Попробуйте позже.")
@@ -795,7 +804,9 @@ func (h *BotHandlers) tryRandomMemeReply(ctx context.Context, message *tgbotapi.
 		request += fmt.Sprintf(" Автор подписал свой мем: \"%s\".", userCaption)
 	}
 
+	stopAction := utils.KeepChatAction(h.bot, message, tgbotapi.ChatUploadPhoto)
 	imageData, caption, err := h.openaiService.GenerateMemeRemake(ctx, []string{imageURL}, "", request, "random")
+	stopAction()
 	if err != nil {
 		log.Printf("Error generating random meme reply: %v", err)
 		return false

@@ -41,12 +41,16 @@ func main() {
 	bot.Debug = false
 	log.Printf("Bot authorized as %s", bot.Self.UserName)
 
+	registerCommands(bot)
+
 	openaiService := services.NewOpenAIService(
 		config.AppConfig.OpenAIAPIKey,
 		config.AppConfig.OpenAIBaseURL,
 		config.AppConfig.OpenAIModel,
 		config.AppConfig.ImageModel,
 	)
+
+	openaiService.SetCriminalCodeProbability(config.AppConfig.CriminalCodeProbability)
 
 	banService := services.NewBanService(bot)
 
@@ -100,6 +104,41 @@ func main() {
 	bot.StopReceivingUpdates()
 
 	log.Println("Bot stopped!")
+}
+
+func registerCommands(bot *tgbotapi.BotAPI) {
+	private := []tgbotapi.BotCommand{
+		{Command: "start", Description: "Как прислать мем"},
+		{Command: "help", Description: "Что умеет бот"},
+	}
+	group := []tgbotapi.BotCommand{
+		{Command: "memes", Description: "Последние мемы в чате"},
+		{Command: "help", Description: "Что умеет бот", IsEphemeral: true},
+	}
+	admins := []tgbotapi.BotCommand{
+		{Command: "memes", Description: "Последние мемы в чате"},
+		{Command: "forget", Description: "Очистить историю мемов"},
+		{Command: "ban", Description: "Забанить: /ban <user_id> <причина>"},
+		{Command: "unban", Description: "Разбанить: /unban <user_id>"},
+		{Command: "banlist", Description: "Список забаненных", IsEphemeral: true},
+		{Command: "migrate_bans", Description: "Перенести баны из конфига в БД"},
+		{Command: "help", Description: "Что умеет бот", IsEphemeral: true},
+	}
+
+	scopes := []struct {
+		scope    tgbotapi.BotCommandScope
+		commands []tgbotapi.BotCommand
+	}{
+		{tgbotapi.NewBotCommandScopeAllPrivateChats(), private},
+		{tgbotapi.NewBotCommandScopeAllGroupChats(), group},
+		{tgbotapi.NewBotCommandScopeAllChatAdministrators(), admins},
+	}
+
+	for _, s := range scopes {
+		if _, err := bot.Request(tgbotapi.NewSetMyCommandsWithScope(s.scope, s.commands...)); err != nil {
+			log.Printf("Warning: setMyCommands for scope %s failed: %v", s.scope.Type, err)
+		}
+	}
 }
 
 func runBot(bot *tgbotapi.BotAPI, handlers *handlers.BotHandlers) {
