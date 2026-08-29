@@ -571,6 +571,7 @@ func (h *BotHandlers) processCommentMediaGroup(groupID string) {
 	caption := messages[0].Caption
 
 	draft := utils.NewDraft(h.bot, messages[0])
+	defer draft.Close()
 	draft.Thinking()
 
 	comment, err := h.openaiService.GenerateCommentFromImages(ctx, imageURLs, messages[0].Chat.ID, caption, draft.Update)
@@ -624,6 +625,7 @@ func (h *BotHandlers) handleSinglePhotoComment(ctx context.Context, message *tgb
 	}
 
 	draft := utils.NewDraft(h.bot, message)
+	defer draft.Close()
 	draft.Thinking()
 
 	comment, err := h.openaiService.GenerateCommentFromImage(ctx, imageURL, message.Chat.ID, caption, draft.Update)
@@ -668,6 +670,7 @@ func (h *BotHandlers) handleReplyToBot(message *tgbotapi.Message) {
 	}
 
 	draft := utils.NewDraft(h.bot, message)
+	defer draft.Close()
 	draft.Thinking()
 
 	var response string

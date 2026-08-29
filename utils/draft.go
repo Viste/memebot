@@ -18,16 +18,29 @@ type Draft struct {
 	mu       sync.Mutex
 	last     time.Time
 	disabled bool
+
+	stopTyping func()
 }
 
 const draftMinInterval = 600 * time.Millisecond
 
 func NewDraft(bot *tgbotapi.BotAPI, message *tgbotapi.Message) *Draft {
-	return &Draft{
+	d := &Draft{
 		bot:      bot,
 		chatID:   message.Chat.ID,
 		threadID: message.MessageThreadID,
 		draftID:  rand.Intn(1<<30) + 1,
+	}
+	if !message.Chat.IsPrivate() {
+		d.disabled = true
+		d.stopTyping = KeepChatAction(bot, message, tgbotapi.ChatTyping)
+	}
+	return d
+}
+
+func (d *Draft) Close() {
+	if d.stopTyping != nil {
+		d.stopTyping()
 	}
 }
 
