@@ -118,7 +118,7 @@ func Load() error {
 		}
 	}
 
-	config.CriminalCodeProbability = 0.5
+	config.CriminalCodeProbability = 1
 	if p := os.Getenv("CRIMINAL_CODE_PROBABILITY"); p != "" {
 		if v, err := strconv.ParseFloat(p, 64); err == nil && v >= 0 && v <= 1 {
 			config.CriminalCodeProbability = v
